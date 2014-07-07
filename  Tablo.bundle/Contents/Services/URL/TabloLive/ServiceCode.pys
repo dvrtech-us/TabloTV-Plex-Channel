@@ -1,0 +1,82 @@
+import pprint
+from tablohelpers import Decodeobj
+from tablohelpers import TabloAPI
+
+ART			 	= 'TabloProduct_FrontRight-default.jpg'
+ICON		 	= 'tablo_icon_focus_hd.png'
+ICON_PREFS 		= 'icon_settings_hd.jpg'
+SHOW_THUMB      = 'no_tv_110x150.jpg'
+LOG_PREFIX 		= "***TabloTV: "
+####################################################################################################
+def NormalizeURL(url):
+	return url
+	
+def MetadataObjectForURL(url):
+
+	channelDict = Decodeobj('channel',url)
+	
+	Log.Debug('MetadataObjectForURL: ')
+	Log(pprint.pformat(channelDict))
+	#Log.Debug('MetadataObjectForURL: ' + title)
+	
+	return EpisodeObject(
+			title = channelDict['epTitle'],
+			summary = channelDict['description'],
+			thumb = Resource.ContentsOfURLWithFallback(url=channelDict['seriesThumb'], fallback=ICON),
+			show = channelDict['title'],
+			art=channelDict['art'] , 
+			duration = int(channelDict['duration']),
+			season = int(channelDict['seasonNumber']),
+			originally_available_at = Datetime.ParseDate(channelDict['airDate']),
+			#writer
+			directors = channelDict['directors'],
+			#producer
+			guest_stars = channelDict['cast']
+			#source_title
+			)
+#			thumb = Resource.ContentsOfURLWithFallback(url=episodeDict['url'] + 'snap.jpg', fallback=episodeDict['seriesthumb']),
+
+def MediaObjectsForURL(url):
+	channelDict = Decodeobj('channel',url)
+	
+	return [
+		MediaObject(
+			protocol = 'hls',
+			container = 'mpegts',
+			video_codec = VideoCodec.H264,
+			audio_codec = AudioCodec.AAC,
+			audio_channels = 2,
+			optimized_for_streaming = True,
+			parts = [
+				PartObject(
+					key = Callback(PlayVideo, url=url, ext='m3u8')
+				)
+			]
+		)
+	]
+                
+
+
+####################################################################################################
+@indirect
+def PlayVideo(url):
+	Log(LOG_PREFIX + "Starting GetLiveTVStream Call")
+	channelDict = Decodeobj('channel',url)
+	myurl = "http://" + channelDict['private_ip'] +":8886"
+	cmd = "/player/watchLive"
+	parms = {"channelid": channelDict['objectID']}
+	result = TabloAPI(myurl,cmd,parms)
+
+	
+	if 'relativePlaylistURL' in result['result']:
+		video_url = "http://" + channelDict['private_ip'] + '/' + result['result']['relativePlaylistURL']
+		Log(' --> Final playvideo_url: %s' % video_url)
+		
+		return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(video_url))
+	else: 
+		return MessageContainer(
+            "Error",
+            result['result']['error']['errorDesc']
+        )
+	
+	

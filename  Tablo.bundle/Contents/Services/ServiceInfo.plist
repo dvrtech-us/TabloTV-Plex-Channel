@@ -1,0 +1,21 @@
+<plist version="1.0">
+  <dict>
+    <key>URL</key>
+	<dict>
+      <key>TabloLive</key>
+      <dict>
+        <key>URLPatterns</key>
+        <array>
+          <string>(.*)channel([\s\S]*)</string>
+        </array>
+      </dict>
+      <key>TabloRecording</key>
+      <dict>
+        <key>URLPatterns</key>
+        <array>
+          <string>(.*)TabloRecording([\s\S]*)</string>
+        </array>
+      </dict>
+    </dict>
+  </dict>
+</plist>
