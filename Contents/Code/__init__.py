@@ -18,7 +18,7 @@ TabloAPI 		= tablohelpers.TabloAPI
 getEpisodeDict 	= tablohelpers.getEpisodeDict
 loadData 		= tablohelpers.loadData
 getTabloIP		= tablohelpers.getTabloIP
-loadLiveTVData   = tablohelpers.loadLiveTVData
+#loadLiveTVData   = tablohelpers.loadLiveTVData
 #PlexLog = SharedCodeService.TabloHelpers.PlexLog
 
 '''#### Define Global Vars ####'''
@@ -92,7 +92,7 @@ def MainMenu():
 		if count == 0:
 			 return ObjectContainer(header='Error', message='API Could Not Locate a tablo on your network')
 	except:
-		Log('Early LoadTablo Fail in MainMenu')
+		PlexLog('Main Menu','Early LoadTablo Fail')
 
 	oc = ObjectContainer()
 	
@@ -106,15 +106,11 @@ def MainMenu():
 		except Exception as e:
 			return ObjectContainer(header='Error', message='Could Not Connect to your tablo')
 			
-		#oc.add(DirectoryObject(thumb=R('icon_livetv_hd.jpg'),key=Callback(livetv, title="Live TV", url = Dict['private_ip'] ), title="Live TV"))
-		oc.add(DirectoryObject(thumb=R('icon_livetv_hd.jpg'),key=Callback(livetvnew, title="Live TV NEW"), title="Live TV NEW"))
+		oc.add(DirectoryObject(thumb=R('icon_livetv_hd.jpg'),key=Callback(livetvnew, title="Live TV"), title="Live TV"))
 		oc.add(DirectoryObject(thumb=R('icon_recordings_hd.jpg'),key=Callback(Shows, title="Shows", url = Dict['private_ip'] ), title="Shows"))
 		oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),key=Callback(allrecordings, title="All Recordings", url = Dict['private_ip'] ), title="Recent Recordings"))
 		oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'),key=Callback(Help, title="Help"), title="Help"))		
-		#Uncomment the line below to try JSON loading the data
-		#oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),key=Callback(testdata), title="testjsondata"))
-		
-		#oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
+
 		
 	return oc
 
@@ -155,10 +151,7 @@ def Help(title):
 #########################################'''
 @route(PREFIX + '/ResetPlugin')
 def ResetPlugin(title):
-	HTTP.ClearCookies()
-	HTTP.ClearCache()
-	Dict["tablo"] = {}
-	Dict["LiveTV"] = {}
+	ClearTabloData()
 	try:
 		#Pass full Tablo info to here for better parsing and future multiple tablo support
 		count = 0
@@ -172,7 +165,6 @@ def ResetPlugin(title):
 			 return ObjectContainer(header='Error', message='API Could Not Locate a tablo on your network')
 	except:
 		Log('Could not fetch tablo IP, Will use cached IP if avalible')
-	#loadData(Dict) move to functions where it is needed rather than loading upfront.. IF we go to livetv only no need to load recordings.. unecessary
 
 	return ObjectContainer(header=title, message='Plugin Reset Complete, Please go back to Main Menu Now')
 '''#########################################
@@ -193,73 +185,6 @@ def About(title):
 	PlexLog('test', JSON.ObjectFromString('{"cpes": [{"http": 21280, "public_ip": "99.224.78.110", "ssl": 21243, "host": "quad_2665", "private_ip": "192.168.1.142", "slip": 21207, "serverid": "SID_5087B8002665", "inserted": "2014-04-15 20:46:56.152096+00:00", "board_type": "quad", "server_version": "2.1.11", "name": "GH Quad Tablo", "modified": "2014-06-10 01:26:09.003166+00:00", "roku": 1, "last_seen": "2014-06-10 01:26:08.999852+00:00"}], "success": true}'))
 	return ObjectContainer(header=title, message='TabloTV Plex Plugin Version ' + VERSION)
 
-'''#########################################
-	Name: livetv()
-	
-	Parameters: None
-	
-	Handler: @route
-	
-	Purpose:
-	
-	Returns:
-	
-	Notes:
-#########################################'''
-@route(PREFIX + '/livetv',allow_sync=True)
-def livetv(title, url):
-	
-	url = "http://" + Dict['private_ip'] +":8886"
-	
-	result = TabloAPI(url,"/info/channel/get",{})
-
-	oc = ObjectContainer()
-	oc.title1 = "Live TV"
-	myDict = {}
-	#Log(pprint.pformat(result))
-	if 'result' in result:
-		channellist = result['result']['channels']
-		for channel in channellist:
-			#Log(pprint.pformat(channel))
-			try:
-				channelDict = {}
-				channelDict['private_ip'] = Dict['private_ip']
-				 
-				channelDict['title'] = channel['title'] 
-				channelDict['callSign'] = channel['callSign']
-				channelDict['channelNumber'] = str(channel['channelNumberMajor']) + '-' + str(channel['channelNumberMinor'])
-				channelDict['objectID'] = channel['objectID'] 
-				Log(LOG_PREFIX + ' series thumb = %s',str(channel['imageID']))
-				
-				if channel['imageID'] == 0:
-					#channelDict['seriesthumb'] = GetDefaultFanart(channel['title'])
-					channelDict['seriesthumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['callSign'])
-					#channelDict['seriesthumb'] = GetGoogleImage(channelDict['callSign'] + ' stations.fcc.gov'+ ' Logo')
-					#channelDict['seriesthumb'] = GetGoogleImage(channelDict['callSign'] + ' ' + str(channel['channelNumberMajor']) + '-' + str(channel['channelNumberMinor']))
-				else:
-					channelDict['seriesthumb'] = 'http://' + Dict['private_ip'] + '/stream/thumb?id=' + str(channel['imageID'])
-				#oc.add(TVShowObject(
-				Log(LOG_PREFIX+'channelDict = %s',channelDict)
-				oc.add(EpisodeObject(
-						url = Encodeobj('channel' , channelDict),
-						#show = channelDict['title'],
-						#show = str(channel['channelNumberMajor']) + '-' + str(channel['channelNumberMinor']) + ':     ' + channel['callSign'],
-						#key=Callback(livetv, title=title, url=url),
-						title = str(channel['channelNumberMajor']) + '-' + str(channel['channelNumberMinor']) + ' ' + channel['callSign'] + ': ' + str(channelDict['title']),
-						summary = channelDict['title'],
-						thumb = Resource.ContentsOfURLWithFallback(url=channelDict['seriesthumb'], fallback=NOTV_ICON)
-						)
-					)
-			except Exception as e:
-				Log("Parse Failed on channel " + str(e))
-	else:
-		Log(pprint.pformat(result))
-		return MessageContainer(
-            "Error",
-            result['result']['error']['errorDesc']
-        )
-
-	return oc
 
 '''#########################################
 	Name: livetvnew()
@@ -278,11 +203,7 @@ def livetv(title, url):
 @route(PREFIX + '/livetvnew',allow_sync=True)
 def livetvnew(title):
 	
-	#if "LiveTV" not in Dict:
 	loadLiveTVData(Dict)
-	#Log(LOG_PREFIX+'LiveTVData loaded as: %s',Dict["LiveTV"])
-	#else:
-	#	Log(LOG_PREFIX+'LiveTVData ALREADY! loaded as: %s',Dict["LiveTV"])
 
 	oc = ObjectContainer()
 	oc.title1 = title
@@ -290,14 +211,12 @@ def livetvnew(title):
 	if "LiveTV" in Dict:
 		data =Dict["LiveTV"]
 
-		#Log(LOG_PREFIX+'livetvdata = %s',data)
 
+	#Loop through channels and create a Episode Object for each show
 		for chid, airingData in data.iteritems():
-			#Log(LOG_PREFIX+' airingdata =%s value=%s',airingData,chid)
 			try:
 				#All commented out are set in TabloLive.pys helpers
 				oc.add(EpisodeObject(
-				#oc.add(TVShowObject(
 					url = Encodeobj('channel' , airingData),
 					show = airingData['channelNumber'] + ': ' + airingData['callSign'],
 					title = airingData['title'],
@@ -307,7 +226,7 @@ def livetvnew(title):
 					#directors = ,
 					#producers = ,
 					#guest_stars = ,
-					#absolute_index = airingData['episodeNumber'],
+					absolute_index = airingData['order'],
 					#season = airingData['seasonNumber'],
 					thumb = Resource.ContentsOfURLWithFallback(url=airingData['seriesThumb'], fallback=NOTV_ICON),
 					#art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
@@ -318,8 +237,268 @@ def livetvnew(title):
 				)
 			except Exception as e:
 				Log("Parse Failed on channel " + str(e))
-
+	oc.objects.sort(key = lambda obj: obj.absolute_index, reverse=False)
 	return oc
+'''#########################################
+	Name: loadLiveTVData()
+	
+	Parameters: Dict
+	
+	Handler: @route
+	
+	Purpose:
+	
+	Returns:
+	
+	Notes: Moved to init for faster debugging
+#########################################'''
+def loadLiveTVData(Dict):
+		#Dict.Reset();
+		Log(LOG_PREFIX + "Starting LoadLiveTVData")
+
+		ipaddress = str(Dict['private_ip'])
+
+		channelids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_ids', values=None, headers={}, cacheTime=600)
+		
+		Log(LOG_PREFIX+"channelids = %s",channelids)
+		
+		markforreload = True
+
+		if "LiveTV" not in Dict:
+			Dict["LiveTV"] = {}
+
+
+		if markforreload :
+			#Feed in new Data
+			
+			i = 0 #used for storing channels in correct order as reported by TabloTV ch_id
+			
+			for chid in channelids['ids']:
+				i = i + 1
+				if chid not in Dict["LiveTV"]:
+					try:
+						channelDict = getChannelDict(ipaddress,chid)
+						#Log(LOG_PREFIX+' new channelDict = %s',channelDict)
+						
+						channelDict["order"] = i
+						Dict["LiveTV"][chid] = channelDict
+						
+						#break  #Use this to debug livetv and grab 1 and only 1 channel
+					except Exception as e:
+						PlexLog("Parse Failed on jsonurl " , e)
+				else:
+					
+					unixtimenow = Datetime.TimestampFromDatetime(Datetime.Now())
+					unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(Dict["LiveTV"][chid]['airDate']))
+					#set the duration to within a minute of it ending
+					durationinseconds = int(Dict["LiveTV"][chid]['duration']/1000)-60
+					unixtimeaproxend = unixtimestarted + durationinseconds
+					if unixtimeaproxend > unixtimenow :
+						channelDict = getChannelDict(ipaddress,chid)
+						PlexLog('LiveTV time compare now', unixtimenow)
+						PlexLog('LiveTV time compare start', unixtimestarted)
+						PlexLog('LiveTV time compare dur', durationinseconds)
+						PlexLog('LiveTV time compare end', unixtimeaproxend)
+						
+						channelDict["order"] = i
+						Dict["LiveTV"][chid] = channelDict
+					
+						
+
+'''#########################################
+	Name: getChannelDict()
+	
+	Parameters: None
+	
+	Purpose:
+	
+	Returns:
+	
+	Notes: Moved to init for faster debugging
+#########################################'''
+def getChannelDict(ipaddress,chid):
+	channelDict = {}
+	#channelDict['url'] = 'http://' + ipaddress + ':18080/pvr/' + episodeID +'/'
+
+	try:
+		channelInfo = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_info?id='+str(chid), values=None, headers={}, cacheTime=60)
+		
+	except Exception as e:
+		PlexLog('getChannelDict', "Call to CGI ch_info failed!")
+		return e
+
+	if 'meta' in channelInfo:
+		chinfo = channelInfo['meta']
+		
+		#Set all defaults for min required EpisodeObject
+		channelDict['private_ip'] = ipaddress
+		channelDict['id'] = chid
+		channelDict['title'] = ''
+		channelDict['epTitle'] = ''
+		channelDict['description'] = ''
+		#channelDict[''] = ''
+		channelDict['objectID'] = chinfo['objectID']
+		channelDict['channelNumberMajor'] = 'N/A'
+		channelDict['channelNumberMinor'] = 'N/A'
+		channelDict['callSign'] = 'N/A'
+		channelDict['duration'] = '0'
+		channelDict['seasonNumber'] = 0 
+		channelDict['episodeNumber'] = 0
+		channelDict['airDate'] = str(Datetime.Now())
+		channelDict['originalAirDate'] = str(Datetime.Now())
+		channelDict['schedule'] = ''
+		channelDict['duration'] = 0
+		channelDict['cast'] = []
+		channelDict['releaseYear'] = 0
+		channelDict['directors'] = []
+
+		if 'channelNumberMajor' in chinfo:
+			channelDict['channelNumberMajor'] = chinfo['channelNumberMajor']
+		if 'channelNumberMinor' in chinfo:
+			channelDict['channelNumberMinor'] = chinfo['channelNumberMinor']
+		if 'callSign' in chinfo:
+			channelDict['callSign'] = chinfo['callSign']
+			channelDict['seriesThumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['callSign'])
+			channelDict['art'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['callSign'])
+		else:
+			channelDict['seriesThumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['channelNumberMajor']+'-'+channelDict['channelNumberMinor'])
+			channelDict['art'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['callSign'])
+		
+		#set default channelNumber AFTER trying to get the number major and number minor
+		channelDict['channelNumber'] = str(chinfo['channelNumberMajor']) + '-' + str(chinfo['channelNumberMinor'])
+
+		if chinfo['dataAvailable'] == 1:
+			
+			try:
+				channelEPGInfo = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_epg?id='+str(chid), values=None, headers={}, cacheTime=60)
+			except Exception as e:
+
+				return channelDict
+
+			if 'meta' in channelEPGInfo:
+				epgInfo = channelEPGInfo['meta']
+				imageInfo = 0 #initialize to avoide reference before assignment
+			else:
+
+				channelDict['message'] = "No ch_epg info found. Using ch_info."
+				return channelDict
+
+			if 'guideSportEvent' in epgInfo:
+
+				guideInfo = epgInfo['guideSportEvent']
+				channelDict['type'] = 'Sport'
+				if 'guideSportOrganization' in epgInfo:
+					Log(LOG_PREFIX+'Guide Sport Organization')
+					guideSportOrg = epgInfo['guideSportOrganization']
+					if 'imageJson' in guideSportOrg:
+						imageInfo = guideSportOrg['imageJson']['images']
+			elif 'guideEpisode' in epgInfo:
+
+				guideInfo = epgInfo['guideEpisode']
+				channelDict['type'] = 'Episode'
+				if 'guideSeries' in epgInfo:
+					Log(LOG_PREFIX+'Series')
+					guideDetailInfo = epgInfo['guideSeries']
+					channelDict['type'] = 'Series'
+					if 'imageJson' in guideDetailInfo:
+						imageInfo = guideDetailInfo['imageJson']['images']
+			elif 'guideMovieAiring' in epgInfo:
+			
+				guideInfo = epgInfo['guideMovieAiring']
+				channelDict['type'] = 'Movie'
+				if 'guideMovie' in epgInfo:
+					Log(LOG_PREFIX+'guideMovie')
+					guideDetailInfo = epgInfo['guideMovie']
+					channelDict['type'] = 'guideMovie'
+					if 'imageJson' in guideDetailInfo:
+						imageInfo = guideDetailInfo['imageJson']['images']
+			else:
+				PlexLog(LOG_PREFIX, 'UNHANDLED TYPE!!! not sport or movie or episode')
+				return channelDict
+
+			#set images outside of series logic to ensure defaults are set
+			if imageInfo:
+				artFound = 0
+				thumbFound = 0
+				for seriesimage in imageInfo:
+					if seriesimage['imageStyle'] == 'background' and artFound == 0:
+						channelDict['art'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+						artFound = 1
+					if seriesimage['imageStyle'] == 'snapshot' and artFound == 0:
+						channelDict['art'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+						artFound = 1
+					if seriesimage['imageStyle'] == 'thumbnail' and thumbFound == 0:
+						channelDict['seriesThumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+						thumbFound = 1
+					if seriesimage['imageStyle'] == 'cover' and thumbFound == 0:
+						channelDict['seriesThumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+						thumbFound = 1
+			else:
+				channelDict['seriesThumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['callSign'])
+
+			#Guide Series or Episode Info
+			if channelDict['type'] != 'Sport':
+				guideEpInfo = guideInfo['jsonForClient']
+
+				if 'seasonNumber' in guideEpInfo:
+					channelDict['seasonNumber'] = int(guideEpInfo['seasonNumber'])
+				if 'episodeNumber' in guideEpInfo:
+					channelDict['episodeNumber']= int(guideEpInfo['episodeNumber'])
+				if 'airDate' in guideEpInfo:
+					channelDict['airDate'] = guideEpInfo['airDate']
+				if 'originalAirDate' in guideEpInfo:
+					channelDict['originalAirDate'] = guideEpInfo['originalAirDate']
+				if 'description' in guideEpInfo:
+					channelDict['description'] = guideEpInfo['description']
+				if 'duration' in guideEpInfo:
+					channelDict['duration'] = int(guideEpInfo['duration']) *1000
+				if 'schedule' in guideEpInfo:
+					channelDict['schedule'] = guideEpInfo['schedule']
+				if 'title' in guideEpInfo:
+					channelDict['epTitle'] = guideEpInfo['title']
+
+			if channelDict['type'] == 'Series' or channelDict['type'] == 'guideMovie':
+				guideJsonInfo = guideDetailInfo['jsonForClient']
+				if 'description' in guideJsonInfo and channelDict['description'] == '':
+					channelDict['description'] = guideJsonInfo['description']
+				elif 'plot' in guideJsonInfo:
+					channelDict['description'] = guideJsonInfo['plot']
+				if 'title' in guideJsonInfo:
+					channelDict['title'] = guideJsonInfo['title']
+				if 'duration' in guideJsonInfo:
+					channelDict['duration'] = int(guideJsonInfo['duration']) *1000
+				if 'originalAirDate' in guideJsonInfo:
+					channelDict['originalAirDate'] = guideJsonInfo['originalAirDate']
+				if 'cast' in guideJsonInfo:
+					channelDict['cast']= [castMember for castMember in guideJsonInfo['cast']]
+				if 'runtime' in guideJsonInfo:
+					channelDict['runtime'] = guideJsonInfo['runtime']
+				if 'releaseYear' in guideJsonInfo:
+					channelDict['releaseYear'] = guideJsonInfo['releaseYear']
+				if 'directors' in guideJsonInfo:
+					channelDict['directors'] = [director for director in guideJsonInfo['directors']]
+				if 'schedule' in guideJsonInfo:
+					channelDict['schedule'] = guideJsonInfo['schedule']
+				if 'airDate' in guideJsonInfo:
+					channelDict['airDate'] = guideJsonInfo['airDate']
+
+			if channelDict['type'] == 'Sport':
+				guideJsonInfo = guideInfo['jsonForClient']
+
+				if 'eventTitle' in guideJsonInfo:
+					channelDict['title'] = guideJsonInfo['eventTitle']
+					channelDict['epTitle'] = guideJsonInfo['eventTitle']
+				if 'airDate' in guideJsonInfo:
+					channelDict['airDate'] = guideJsonInfo['airDate']
+				if 'duration' in guideJsonInfo:
+					channelDict['duration'] = int(guideJsonInfo['duration']) *1000
+
+
+	#PlexLog(LOG_PREFIX + "Completed getChannelDict",chid)
+	return channelDict
+
+
+
 
 '''#########################################
 	Name: allrecordings()
@@ -350,6 +529,9 @@ def allrecordings(title, url):
 		for episodejson, value in Dict["tablo"].iteritems():
 			try:
 				episodeDict = value
+				# The commented out code was to try to bypass a tuncation issue with plex sync
+				# Plex sync still did not work but this does resolve the truncation
+				# and may be needed later
 				#altdict = {}
 				#altdict['alt'] = 'Yes'
 				#altdict['private_ip'] = Dict['private_ip']
@@ -395,20 +577,19 @@ def Shows(title, url):
 	loadData(Dict)
 	
 	if "tablo" in Dict:
-		#Log(Dict["tablo"])
+		
 		shows = {}
 		data =Dict["tablo"]
-		#Log(pprint.pformat(data))
+	
 		for episodejson, value in data.iteritems():
-		 	#Log(pprint.pformat(value))
+		 
 			episodeDict = value
 			try:
 				
-				#Log(repr(episodeinfo))
 				seriesId = episodeDict['seriesId']
 				if not seriesId in shows:
 					shows[seriesId] = 'true'
-					
+
 					url = Encodeobj('TabloRecording' , episodeDict),
 					oc.add(TVShowObject(
 						rating_key = seriesId,
@@ -424,7 +605,7 @@ def Shows(title, url):
 			except Exception as e:
 				Log(" Failed on show " + str(e))
 	oc.objects.sort(key = lambda obj: obj.title)
-	#oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
+
 	return oc
 
 '''#########################################
@@ -477,6 +658,8 @@ def Seasons(title, url, seriesid):
 						))
 			except Exception as e:
 				PlexLog('Seasons'," Failed on show " + str(e))
+				
+	#if their is only 1 season, skip the unneeded screen
 	if seasoncount == 1:
 		return Episodes(title, seriesid, lastseason)
 	else:
@@ -508,7 +691,6 @@ def Episodes(title, seriesid, seasonnum):
 	loadData(Dict)
 	
 	if "tablo" in Dict:
-		#Log(Dict["tablo"])
 		
 		seasons = {}
 		data =Dict["tablo"]
@@ -579,7 +761,7 @@ def GetGoogleImage(searchterm):
 	searchterm = searchterm.replace(" ","+")
 	searchurl = 'https://ajax.googleapis.com/ajax/services/search/images?v=1.0&q=' + searchterm + '&start=0'
 	data = JSON.ObjectFromURL(searchurl)
-	#PlexLog('Google',data)
+
 	for image_info in data['responseData']['results']:
 		imageurl = image_info['unescapedUrl']
 		PlexLog('Google Image' ,image_info)
@@ -600,15 +782,26 @@ def GetGoogleImage(searchterm):
 def LoadTablos():
 	#Pass full Tablo info to here for better parsing and future multiple tablo support
 	count = 0
+	lasttabloip = ''
 	try:
+		if 'public_ip' in Dict:
+			lasttabloip = Dict['public_ip']
 		Dict['tabloips'] = getTabloIP()
 		for tablo in Dict['tabloips']:
 			count = count + 1
 			Dict['public_ip'] = str(tablo['public_ip'])
 			Dict['private_ip'] = str(tablo['private_ip'])
+		#detect if the IP address has changed (most likely due to dhcp)
+		# if it did, clear the dicts because the stored IP's will be incorrect
+		# @ToDo remove all references in the dicts to the tablo's IP and use the Tablos' ID
+		# To find the IP in the tabloips Dict
+		if Dict['public_ip'] != lasttabloip:
+			ClearTabloData()
 	except Exception as e:
 		PlexLog('LoadTablos Failure',e)
+	
 	return count
+	
 '''#########################################
 	Name: PlexLog()
 	
@@ -625,6 +818,25 @@ def LoadTablos():
 def PlexLog(location, message):
 	if debugit:
 		Log(LOG_PREFIX + str(location) + ': ' + pprint.pformat(message))
+'''#########################################
+	Name: ClearTabloData()
+	
+	Parameters: None
+	
+	Handler: 
+	
+	Purpose: Central function to reset data
+	
+	Returns:
+	
+	Notes:
+#########################################'''
+def ClearTabloData():
+	HTTP.ClearCookies()
+	HTTP.ClearCache()
+	Dict.Reset()
+	if "tablo" not in Dict:
+		PlexLog('ClearTabloData','Clear appears to have worked')
 
 '''#########################################
 	Name: None
@@ -641,8 +853,14 @@ def PlexLog(location, message):
 	Notes:
 #########################################'''
 try:
+	if 'ver' in Dict:
+		if Dict['ver'] != VERSION:
+			ClearTabloData()
+	else: 
+		ClearTabloData()
 	LoadTablos()
 	loadData(Dict)
-	#loadLiveTVData(Dict) #Pre-Load channel data
+	loadLiveTVData(Dict)
+	Dict['ver'] =VERSION
 except Exception as e:
-	Log('LoadTablos Failure at start')
+	PlexLog('At start',e)
