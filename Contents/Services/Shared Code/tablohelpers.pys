@@ -2,11 +2,11 @@ import pprint
 '''#########################################   
 	Author:  @PiX64  - Reid, Michael
 			 @DavidVR - Van Ronk, David
- 
-	Source: 
 
-	Purpose:  
-	
+	Source:
+
+	Purpose:
+
 	Legal:
 #########################################'''
 LOG_PREFIX 		= "***TabloTV: "
@@ -14,13 +14,13 @@ debugit = True
 
 '''#########################################
 	Name: GetThumb()
-	
+
 	Parameters: None
-	
+
 	Purpose:
-	
+
 	Returns:
-	
+
 	Notes:
 #########################################'''
 def GetThumb(imageID):
@@ -28,13 +28,13 @@ def GetThumb(imageID):
 
 '''#########################################
 	Name: GetFanart()
-	
+
 	Parameters: None
-	
+
 	Purpose: PROBABLY wont be used! REMOVED
-	
+
 	Returns:
-	
+
 	Notes:
 #########################################'''
 def GetFanart(imageID):
@@ -44,15 +44,15 @@ def GetFanart(imageID):
 
 '''#########################################
 	Name: PlexLog()
-	
+
 	Parameters: None
-	
-	Handler: 
-	
+
+	Handler:
+
 	Purpose: Central Control of logging
-	
+
 	Returns:
-	
+
 	Notes:
 #########################################'''
 def PlexLog(location, message):
@@ -61,56 +61,56 @@ def PlexLog(location, message):
 
 '''#########################################
 	Name: Encodeobj()
-	
+
 	Parameters: None
-	
+
 	Purpose:
-	
+
 	Returns:
-	
+
 	Notes:
 #########################################'''
 def Encodeobj(location, message):
-   
+
 	encodedpart = JSON.StringFromObject(message)
 
 	url = 'tablo://'+ str(location) + '/' + String.Encode(encodedpart)
-	
+
 	#Log('Encode: ' + url)
 	return url
 
 '''#########################################
 	Name: Decodeobj()
-	
+
 	Parameters: None
-	
+
 	Purpose:
-	
+
 	Returns:
-	
+
 	Notes:
 #########################################'''
 def Decodeobj(location, message):
 	encodedobj = message.replace('tablo://'+ str(location) + '/',"")
 	#Log('decode: ' + encodedobj)
-	
+
 	encodedobj = String.Decode(encodedobj)
-	
-	
+
+
 	decodedobj = JSON.ObjectFromString(encodedobj)
 	#decodedobj = getEpisodeDict(encodedobj['url'],encodedobj['private_ip'])
 	return decodedobj
-	
-	
+
+
 '''#########################################
 	Name: TabloAPI()
-	
+
 	Parameters: None
-	
+
 	Purpose:
-	
+
 	Returns:
-	
+
 	Notes:
 		Returns result so that test for error can be handled in calling function
 #########################################'''
@@ -120,7 +120,7 @@ def TabloAPI(url,cmd,parms):
 	if debugit:
 		Log(LOG_PREFIX + "cmd" + pprint.pformat(cmd))
 	request = {"jsonrpc":2.0,"id":"1","method": str(cmd),"params": parms}
-	
+
 	if debugit:
 		Log(LOG_PREFIX + "request" + pprint.pformat(request))
 	try:
@@ -136,25 +136,25 @@ def TabloAPI(url,cmd,parms):
 
 '''#########################################
 	Name: loadData()
-	
+
 	Parameters: None
-	
+
 	Handler: @route
-	
+
 	Purpose:
-	
+
 	Returns:
-	
+
 	Notes:
 #########################################'''
 def loadData(Dict):
-	
+
 		ipaddress = str(Dict['private_ip'])
 
 
 		episodelistids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_ids', values=None, headers={}, cacheTime=60)
-		
-		
+
+
 		#hash = Hash.MD5(JSON.StringFromObject(episodelistids))
 		markforreload = True
 		if "tablo" not in Dict:
@@ -166,13 +166,13 @@ def loadData(Dict):
 			Log('Feeding')
 			#Feed in new Data
 			for episode in episodelistids['ids']:
-	
+
 				epinum = str(episode)
 				if epinum not in Dict["tablo"] and epicount < 999:
 					try:
-						
+
 						episodeDict = getEpisodeDict(ipaddress,epinum,True)
-					
+
 						Dict["tablo"][epinum]= episodeDict
 						epicount = epicount + 1
 					except Exception as e:
@@ -188,9 +188,9 @@ def loadData(Dict):
 					except Exception as e:
 						Log("Parse Failed on delete key " + str(e))
 
-					
 
-			
+
+
 		#Log(myDict)
 
 
@@ -200,13 +200,13 @@ def loadData(Dict):
 
 '''#########################################
 	Name: getEpisodeDict()
-	
+
 	Parameters: None
-	
+
 	Purpose:
-	
+
 	Returns:
-	
+
 	Notes:
 #########################################'''
 def getEpisodeDict(ipaddress,episodeID,UseMeta):
@@ -224,7 +224,7 @@ def getEpisodeDict(ipaddress,episodeID,UseMeta):
 			return e
 	else:
 		episodeobj = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_info?id=' + episodeID, values=None, headers={}, cacheTime=60)
-	
+
 	if 'meta' in episodeobj or UseMeta:
 		if UseMeta == False:
 			episodeinfo = episodeobj['meta']
@@ -248,7 +248,7 @@ def getEpisodeDict(ipaddress,episodeID,UseMeta):
 			episodeDict['duration']  = int(episodeinfo['recEpisode']['jsonForClient']['video']['duration']) *1000
 		else:
 			episodeDict['duration'] = 0
-	
+
 		episodeDict['video'] = episodeinfo['recEpisode']['jsonForClient']['video']
 		episodeDict['seasonnum'] = int(episodeinfo['recEpisode']['jsonForClient']['seasonNumber'])
 		episodeDict['episodenum'] = int(episodeinfo['recEpisode']['jsonForClient']['episodeNumber'])
@@ -257,7 +257,7 @@ def getEpisodeDict(ipaddress,episodeID,UseMeta):
 		episodeDict['seriesdesc'] = ''
 		if 'shortDescription' in episodeinfo['recSeries']['jsonFromTribune']:
 			episodeDict['seriesdesc'] = episodeinfo['recSeries']['jsonFromTribune']['shortDescription']
-	
+
 		#use image url to retrieve show images.  Snap.jpg isn't always available
 		episodeDict['seriesthumb'] = episodeDict['url'] + 'snap.jpg'
 		episodeDict['backgroundart'] = episodeDict['url'] + 'snap.jpg'
@@ -269,41 +269,49 @@ def getEpisodeDict(ipaddress,episodeID,UseMeta):
 				if seriesimage['imageType'] == 'series_3x4_small':
 					episodeDict['seriesthumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
 
-	
+
 		episodeDict['showtotalepisodes'] = int(episodeinfo['recSeries']['jsonFromTribune']['totalEpisodes'])
-	
+
 	return episodeDict
 
 '''#########################################
 	Name: GetTabloIP()
-	
+
 	Parameters: None
-	
-	Handler: 
-	
+
+	Handler:
+
 	Purpose: Central Control of logging
-	
+
 	Returns:
-	
+
 	Notes:
-#########################################'''	
+#########################################'''
 def getTabloIP():
 	PlexLog(LOG_PREFIX , "Starting getTabloIP Call")
-	
+
 	url = 'https://api.tablotv.com/assocserver/getipinfo/'
-	
+	try:
+		if Prefs['ipoveride'] != '':
+			PlexLog('pref','using overidge')
+			tablo = {}
+			tablo['public_ip'] = Prefs['ipoveride']
+			tablo['private_ip'] = Prefs['ipoveride']
+			return tablo
+	except Exception as e:
+		PlexLog("Error when calling getTabloIPPrefs" ,e)
 	try:
 		result = JSON.ObjectFromURL(url)
-		
+
 	except Exception as e:
 		PlexLog("Error when calling getipinfo" ,e)
 		return e
-		
+
 	PlexLog("result of json call ",result)
 	PlexLog('GetTabloIP',result)
 	if 'success' in result:
 		return result['cpes']
-		
+
 	else:
-		return ''   
+		return ''
 
