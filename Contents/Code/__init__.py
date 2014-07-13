@@ -112,7 +112,7 @@ def MainMenu():
         oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),
                                key=Callback(allrecordings, title="All Recordings", url=Dict['private_ip']),
                                title="Recent Recordings"))
-        oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),
+        oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.jpg'),
                                key=Callback(scheduled, title="Scheduled Recordings"),
                                title="Scheduled Recordings"))
         oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'), key=Callback(Help, title="Help"), title="Help"))
@@ -226,22 +226,25 @@ def scheduled(title):
     oc = ObjectContainer()
     oc.title1 = title
     ipaddress = Dict['private_ip']
+    plexlog('date',Datetime.Now())
 
-    
     # Loop through channels and create a Episode Object for each show
     for airingData in recordings:
                 unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
-                displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))))
+                timezoneoffset = 6 * 60 * 60
+                displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) -timezoneoffset))
+
                 plexlog('airingdata loop',airingData)
                 # All commented out are set in TabloLive.pys helpers
-                oc.add(EpisodeObject(
-                    url=Encodeobj('channel', airingData),
-                    show=airingData['title'],
+                oc.add(TVShowObject(
+
+                    rating_key=airingData['objectID'],
+                    #show=airingData['title'],
                     title= displayeddate + ' - ' + airingData['title'],
                     summary='Original Air Date: ' + airingData['originalAirDate'] + ' Scheduled to Record: '+ airingData['schedule']['scheduleType'] ,
                     # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
                     # directors = ,  #producers = ,  #guest_stars = ,
-                    absolute_index=int(unixtimestarted),  # season = airingData['seasonNumber'],
+                    key=int(unixtimestarted),  # season = airingData['seasonNumber'],
                     thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + '/stream/thumb?id=' + str(airingData['images'][0]['imageID']), fallback=NOTV_ICON),
                     # art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
                     source_title='TabloTV'
@@ -249,7 +252,7 @@ def scheduled(title):
                 )
                 )
 
-    oc.objects.sort(key=lambda obj: obj.absolute_index, reverse=False)
+    oc.objects.sort(key=lambda obj: obj.key, reverse=False)
     return oc
 
 
@@ -299,13 +302,13 @@ def detected(title):
 #########################################'''
 
 
-@route(PREFIX + '/livetvnew', allow_sync=True)
+@route(PREFIX + '/livetvnew', allow_sync=False)
 def livetvnew(title):
     loadLiveTVData(Dict)
 
     oc = ObjectContainer()
     oc.title1 = title
-
+    oc.no_cache = True
     if "LiveTV" in Dict:
         data = Dict["LiveTV"]
 
