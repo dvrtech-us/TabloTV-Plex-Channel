@@ -112,6 +112,9 @@ def MainMenu():
         oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),
                                key=Callback(allrecordings, title="All Recordings", url=Dict['private_ip']),
                                title="Recent Recordings"))
+        oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),
+                               key=Callback(scheduled, title="Scheduled Recordings"),
+                               title="Scheduled Recordings"))
         oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'), key=Callback(Help, title="Help"), title="Help"))
 
     return oc
@@ -136,6 +139,7 @@ def MainMenu():
 def Help(title):
     oc = ObjectContainer()
     oc.add(DirectoryObject(thumb=R('info.png'), key=Callback(About, title="About TabloTV Plex"), title="About"))
+    oc.add(DirectoryObject(thumb=R('info.png'), key=Callback(detected, title="About Your Tablo"), title="About Your Tablo"))
     oc.add(DirectoryObject(thumb=R('icon-prefs.png'), key=Callback(ResetPlugin, title="Reset Plugin"),
                            title="Reset Plugin "))
     return oc
@@ -195,6 +199,86 @@ def ResetPlugin(title):
 def About(title):
     return ObjectContainer(header=title, message='TabloTV Plex Plugin Version ' + VERSION)
 
+'''#########################################
+        Name: scheduled()
+
+        Parameters: None
+
+        Handler: @route
+
+        Purpose:
+
+        Returns:
+
+        Notes:
+#########################################'''
+
+
+@route(PREFIX + '/scheduled')
+def scheduled(title):
+    mymessage = ""
+    myurl = "http://" + Dict['private_ip'] +":8886"
+    cmd = "/info/guideSeries/get"
+    parms = {"filter":{"orderby":"startdate","schedulestate":"scheduled"}}
+    result = TabloAPI(myurl,cmd,parms)
+   # plexlog('detect',result)
+    recordings = result['result']['series']
+    oc = ObjectContainer()
+    oc.title1 = title
+    ipaddress = Dict['private_ip']
+
+    
+    # Loop through channels and create a Episode Object for each show
+    for airingData in recordings:
+                unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
+                displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))))
+                plexlog('airingdata loop',airingData)
+                # All commented out are set in TabloLive.pys helpers
+                oc.add(EpisodeObject(
+                    url=Encodeobj('channel', airingData),
+                    show=airingData['title'],
+                    title= displayeddate + ' - ' + airingData['title'],
+                    summary='Original Air Date: ' + airingData['originalAirDate'] + ' Scheduled to Record: '+ airingData['schedule']['scheduleType'] ,
+                    # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
+                    # directors = ,  #producers = ,  #guest_stars = ,
+                    absolute_index=int(unixtimestarted),  # season = airingData['seasonNumber'],
+                    thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + '/stream/thumb?id=' + str(airingData['images'][0]['imageID']), fallback=NOTV_ICON),
+                    # art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
+                    source_title='TabloTV'
+                    # duration = airingData['duration']  #description = airingData['description']
+                )
+                )
+
+    oc.objects.sort(key=lambda obj: obj.absolute_index, reverse=False)
+    return oc
+
+
+'''#########################################
+        Name: Detected()
+
+        Parameters: None
+
+        Handler: @route
+
+        Purpose:
+
+        Returns:
+
+        Notes:
+#########################################'''
+
+
+@route(PREFIX + '/about/Detected')
+def detected(title):
+    mymessage = ""
+    myurl = "http://" + Dict['private_ip'] +":8886"
+    cmd = "/server/status"
+    parms = {}
+    result = TabloAPI(myurl,cmd,parms)
+    plexlog('detect',result)
+    tablo = result['result']
+    mymessage = mymessage + " Tablo Reported Name: " + tablo['name'] + '   _______  Reported IP: ' + tablo['localAddress'] + '___________ Running Version: ' + tablo['serverVersion']
+    return ObjectContainer(header=title, message=mymessage)
 '********************************************************************************************'
 '********************** Start OF LIVE TV CODE ***********************************************'
 '********************************************************************************************'
