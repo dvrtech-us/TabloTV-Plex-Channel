@@ -30,7 +30,7 @@ ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/Tablo'
 LOG_PREFIX = "***TabloTV: "
-VERSION = "0.96"
+VERSION = "0.97"
 FOLDERS_COUNT_IN_TITLE = True  # Global VAR used to enable counts on titles
 debugit = True
 
@@ -233,6 +233,9 @@ def scheduled(title):
                 unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
                 timezoneoffset = 6 * 60 * 60
                 displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) -timezoneoffset))
+                recordingtype = 'Unknown'
+                if 'scheduleType' in airingData['schedule']:
+                    recordingtype = airingData['schedule']['scheduleType']
 
                 plexlog('airingdata loop',airingData)
                 # All commented out are set in TabloLive.pys helpers
@@ -241,7 +244,7 @@ def scheduled(title):
                     rating_key=airingData['objectID'],
                     #show=airingData['title'],
                     title= displayeddate + ' - ' + airingData['title'],
-                    summary='Original Air Date: ' + airingData['originalAirDate'] + ' Scheduled to Record: '+ airingData['schedule']['scheduleType'] ,
+                    summary='Original Air Date: ' + airingData['originalAirDate'] + ' Scheduled to Record: '+ recordingtype ,
                     # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
                     # directors = ,  #producers = ,  #guest_stars = ,
                     key=int(unixtimestarted),  # season = airingData['seasonNumber'],
