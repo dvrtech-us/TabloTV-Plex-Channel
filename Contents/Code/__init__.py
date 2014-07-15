@@ -230,6 +230,7 @@ def scheduled(title):
 
     # Loop through channels and create a Episode Object for each show
     for airingData in recordings:
+        try:
                 unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
                 timezoneoffset = 6 * 60 * 60
                 displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) -timezoneoffset))
@@ -254,6 +255,8 @@ def scheduled(title):
                     # duration = airingData['duration']  #description = airingData['description']
                 )
                 )
+        except Exception as e:
+            plexlog('scheduled',e)
 
     oc.objects.sort(key=lambda obj: obj.key, reverse=False)
     return oc
