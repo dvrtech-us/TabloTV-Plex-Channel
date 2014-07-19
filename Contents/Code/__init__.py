@@ -391,18 +391,17 @@ def loadLiveTVData(Dict):
                 # break  #Use this to debug livetv and grab 1 and only 1 channel
 
             else:
-
-                unixtimenow = Datetime.TimestampFromDatetime(Datetime.Now())
-                unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(Dict["LiveTV"][chid]['airDate']))
+                datetime = Datetime.Now()
+                startdatetimetz = Datetime.ParseDate(Dict["LiveTV"][chid]['airDate'])
+                startdatetime = startdatetimetz.replace(tzinfo=None)
+                secondsintoprogram = int(( datetime.utcnow() - startdatetime).total_seconds())
                 # set the duration to within a minute of it ending
-                durationinseconds = int(Dict["LiveTV"][chid]['duration'] / 1000) - 60
-                unixtimeaproxend = unixtimestarted + durationinseconds
-                if unixtimeaproxend > unixtimenow:
+                durationinseconds = int(Dict["LiveTV"][chid]['duration'] / 1000)
+                plexlog('secondsintoprogram',secondsintoprogram)
+                plexlog('durationinseconds',durationinseconds)
+                if secondsintoprogram > (durationinseconds- 60):
+                    plexlog('LiveTV','The Program is reloading')
                     channelDict = getChannelDict(ipaddress, chid)
-                    plexlog('LiveTV time compare now', unixtimenow)
-                    plexlog('LiveTV time compare start', unixtimestarted)
-                    plexlog('LiveTV time compare dur', durationinseconds)
-                    plexlog('LiveTV time compare end', unixtimeaproxend)
 
                     channelDict["order"] = i
                     Dict["LiveTV"][chid] = channelDict
