@@ -30,7 +30,7 @@ ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/Tablo'
 LOG_PREFIX = "***TabloTV: "
-VERSION = "0.97"
+VERSION = "0.98"
 FOLDERS_COUNT_IN_TITLE = True  # Global VAR used to enable counts on titles
 debugit = True
 
