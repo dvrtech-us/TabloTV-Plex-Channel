@@ -226,14 +226,16 @@ def scheduled(title):
     oc = ObjectContainer()
     oc.title1 = title
     ipaddress = Dict['private_ip']
-    plexlog('date',Datetime.Now())
+    datetime = Datetime.Now()
+    timezoneoffset = int((datetime - datetime.utcnow()).total_seconds())
+    plexlog('secondsbetween',timezoneoffset)
+    plexlog('date.now',datetime)
+    plexlog('date.utcnow',datetime.utcnow())
 
     # Loop through channels and create a Episode Object for each show
     for airingData in recordings:
-        try:
                 unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
-                timezoneoffset = 6 * 60 * 60
-                displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) -timezoneoffset))
+                displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) + timezoneoffset))
                 recordingtype = 'Unknown'
                 if 'scheduleType' in airingData['schedule']:
                     recordingtype = airingData['schedule']['scheduleType']
@@ -255,8 +257,6 @@ def scheduled(title):
                     # duration = airingData['duration']  #description = airingData['description']
                 )
                 )
-        except Exception as e:
-            plexlog('scheduled',e)
 
     oc.objects.sort(key=lambda obj: obj.key, reverse=False)
     return oc
