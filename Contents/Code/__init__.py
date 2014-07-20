@@ -30,7 +30,7 @@ ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/Tablo'
 LOG_PREFIX = "***TabloTV: "
-VERSION = "0.97"
+VERSION = "0.98"
 FOLDERS_COUNT_IN_TITLE = True  # Global VAR used to enable counts on titles
 debugit = True
 
@@ -226,13 +226,16 @@ def scheduled(title):
     oc = ObjectContainer()
     oc.title1 = title
     ipaddress = Dict['private_ip']
-    plexlog('date',Datetime.Now())
+    datetime = Datetime.Now()
+    timezoneoffset = int((datetime - datetime.utcnow()).total_seconds())
+    plexlog('secondsbetween',timezoneoffset)
+    plexlog('date.now',datetime)
+    plexlog('date.utcnow',datetime.utcnow())
 
     # Loop through channels and create a Episode Object for each show
     for airingData in recordings:
                 unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
-                timezoneoffset = 6 * 60 * 60
-                displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) -timezoneoffset))
+                displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) + timezoneoffset))
                 recordingtype = 'Unknown'
                 if 'scheduleType' in airingData['schedule']:
                     recordingtype = airingData['schedule']['scheduleType']
@@ -388,18 +391,17 @@ def loadLiveTVData(Dict):
                 # break  #Use this to debug livetv and grab 1 and only 1 channel
 
             else:
-
-                unixtimenow = Datetime.TimestampFromDatetime(Datetime.Now())
-                unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(Dict["LiveTV"][chid]['airDate']))
+                datetime = Datetime.Now()
+                startdatetimetz = Datetime.ParseDate(Dict["LiveTV"][chid]['airDate'])
+                startdatetime = startdatetimetz.replace(tzinfo=None)
+                secondsintoprogram = int(( datetime.utcnow() - startdatetime).total_seconds())
                 # set the duration to within a minute of it ending
-                durationinseconds = int(Dict["LiveTV"][chid]['duration'] / 1000) - 60
-                unixtimeaproxend = unixtimestarted + durationinseconds
-                if unixtimeaproxend > unixtimenow:
+                durationinseconds = int(Dict["LiveTV"][chid]['duration'] / 1000)
+                plexlog('secondsintoprogram',secondsintoprogram)
+                plexlog('durationinseconds',durationinseconds)
+                if secondsintoprogram > (durationinseconds- 60):
+                    plexlog('LiveTV','The Program is reloading')
                     channelDict = getChannelDict(ipaddress, chid)
-                    plexlog('LiveTV time compare now', unixtimenow)
-                    plexlog('LiveTV time compare start', unixtimestarted)
-                    plexlog('LiveTV time compare dur', durationinseconds)
-                    plexlog('LiveTV time compare end', unixtimeaproxend)
 
                     channelDict["order"] = i
                     Dict["LiveTV"][chid] = channelDict
