@@ -108,9 +108,9 @@ def MainMenu():
             DirectoryObject(thumb=R('icon_livetv_hd.jpg'), key=Callback(livetvnew, title="Live TV"), title="Live TV"))
         oc.add(DirectoryObject(thumb=R('icon_recordings_hd.jpg'),
                                key=Callback(Shows, title="Shows", url=Dict['private_ip']), title="Shows"))
-        oc.add(DirectoryObject(thumb=R('icon_recordings_hd.jpg'),
-                               key=Callback(Movies, title="Movies"), title="Movies"))
         oc.add(DirectoryObject(thumb=R('icon_movies_hd.jpg'),
+                               key=Callback(Movies, title="Movies"), title="Movies"))
+        oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),
                                key=Callback(allrecordings, title="All Recordings", url=Dict['private_ip']),
                                title="Recent Recordings"))
         oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.jpg'),
