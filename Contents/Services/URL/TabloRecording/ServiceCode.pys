@@ -1,91 +1,92 @@
 from tablohelpers import Decodeobj
-from tablohelpers import getEpisodeDict
-ART			 	= 'TabloProduct_FrontRight-default.jpg'
-ICON		 	= 'tablo_icon_focus_hd.png'
-ICON_PREFS 		= 'icon_settings_hd.jpg'
+ART                 = 'TabloProduct_FrontRight-default.jpg'
+ICON             = 'tablo_icon_focus_hd.png'
+ICON_PREFS         = 'icon_settings_hd.jpg'
 SHOW_THUMB      = 'no_tv_110x150.jpg'
 
 ####################################################################################################
 def NormalizeURL(url):
-	return url
-	
+    return url
+    
 def MetadataObjectForURL(url):
-	
-	altdict = Decodeobj('TabloRecording',url)
-	if 'alt' in altdict:
-		episodeDict = getEpisodeDict(altdict['private_ip'],altdict['episodeID'],True )
-	else:
-		episodeDict = altdict
-	# Extract the details available directly from the page.
-	title = str(episodeDict['showname']) + ' - ' + str(episodeDict['title'])
-	summary = episodeDict['summary']
-	#Log('TTHE URL *******************')
-	#Log(episodeDict['url'])
-	#Log.Debug('MetadataObjectForURL: ' + title)
-	
-	return EpisodeObject(
-						show = episodeDict['showname'] ,
-						art=episodeDict['backgroundart'] , 
-						title = episodeDict['title'],
-						summary = episodeDict['summary'],
-						thumb = Resource.ContentsOfURLWithFallback(url=episodeDict['url'] + 'snap.jpg', fallback=episodeDict['seriesthumb']),
-						duration = int(episodeDict['duration']),
-						season = int(episodeDict['seasonnum']),
-						originally_available_at = Datetime.ParseDate(episodeDict['airdate'])
-						)
+    
+    recordingDict = Decodeobj('TabloRecording',url)
+
+
+
+    if recordingDict['recordingtype'] == 'Movie':
+
+        return MovieObject(
+                                art=recordingDict['backgroundart'],
+                                title=recordingDict['title'],
+                                summary=recordingDict['summary'],
+                                duration=recordingDict['duration'],
+                                thumb=Resource.ContentsOfURLWithFallback(url=recordingDict['url'] + 'snap.jpg',
+                                                                         fallback=recordingDict['seriesthumb']),
+                                originally_available_at=Datetime.ParseDate(recordingDict['airdate'])
+        )
+    if recordingDict['recordingtype'] == 'TvShow':
+        title = str(recordingDict['showname']) + ' - ' + str(episodeDict['title'])
+        return EpisodeObject(
+                            show = recordingDict['showname'] ,
+                            art=recordingDict['backgroundart'] ,
+                            title = recordingDict['title'],
+                            summary = recordingDict['summary'],
+                            thumb = Resource.ContentsOfURLWithFallback(url=recordingDict['url'] + 'snap.jpg', fallback=recordingDict['seriesthumb']),
+                            duration = int(recordingDict['duration']),
+                            season = int(recordingDict['seasonnum']),
+                            originally_available_at = Datetime.ParseDate(recordingDict['airdate'])
+                            )
 
 def MediaObjectsForURL(url):
 
-	altdict = Decodeobj('TabloRecording',url)
-	if 'alt' in altdict:
-		episodeDict = getEpisodeDict(altdict['private_ip'],altdict['episodeID'] ,True)
-	else:
-		episodeDict = altdict
-	bitrate = 500
-	aspect = None
-	try:
-		#Get aspect Ratio and truncate to 2 decimal places
-		aspect = float(episodeDict['video']['width']) /  float(episodeDict['video']['height'])
-		aspect = str(float(int(aspect *100))/100)
-		bitrate = int(episodeDict['video']['size']) / int(episodeDict['duration'])
-	except Exception as e:
-		Log('Failed to calculate aspect' + str(e))
-		
-	return [
-		MediaObject(
-			protocol = 'hls',
-			container = 'mpegts',
-			duration = int(episodeDict['duration']),
-			bitrate = bitrate,
-			aspect_ratio = aspect,
-			video_codec = VideoCodec.H264,
-			audio_codec = AudioCodec.AAC,
-			audio_channels = 2,
-			optimized_for_streaming = True,
-			parts = [
-				PartObject(
-					key = Callback(PlayVideo, url=episodeDict['url'] + 'pl/playlist.m3u8', ext='m3u8')
-				)
-			]
-		)
-	]
+    episodeDict = Decodeobj('TabloRecording',url)
+
+    bitrate = 500
+    aspect = None
+    try:
+        #Get aspect Ratio and truncate to 2 decimal places
+        aspect = float(episodeDict['video']['width']) /  float(episodeDict['video']['height'])
+        aspect = str(float(int(aspect *100))/100)
+        bitrate = int(episodeDict['video']['size']) / int(episodeDict['duration'])
+    except Exception as e:
+        Log('Failed to calculate aspect' + str(e))
+        
+    return [
+        MediaObject(
+            protocol = 'hls',
+            container = 'mpegts',
+            duration = int(episodeDict['duration']),
+            bitrate = bitrate,
+            aspect_ratio = aspect,
+            video_codec = VideoCodec.H264,
+            audio_codec = AudioCodec.AAC,
+            audio_channels = 2,
+            optimized_for_streaming = True,
+            parts = [
+                PartObject(
+                    key = Callback(PlayVideo, url=episodeDict['url'] + 'pl/playlist.m3u8', ext='m3u8')
+                )
+            ]
+        )
+    ]
                 
 
 
 ####################################################################################################
 @indirect
 def PlayVideo(url):
-	#altdict = Decodeobj('TabloRecording',url)
-	#if 'alt' in altdict:
-	#	episodeDict = getEpisodeDict(altdict['private_ip'],altdict['episodeID'] ,False)
-	#else:
-	#	episodeDict = altdict
-	#ipaddress = episodeDict['private_ip'] 
-	#episodeID = episodeDict['episodeID'] 
-	#video_url = episodeDict['url'] + 'pl/playlist.m3u8'
-	video_url = url
-	Log(' --> Final playvideo_url: %s' % video_url)
+    #altdict = Decodeobj('TabloRecording',url)
+    #if 'alt' in altdict:
+    #    episodeDict = getEpisodeDict(altdict['private_ip'],altdict['episodeID'] ,False)
+    #else:
+    #    episodeDict = altdict
+    #ipaddress = episodeDict['private_ip'] 
+    #episodeID = episodeDict['episodeID'] 
+    #video_url = episodeDict['url'] + 'pl/playlist.m3u8'
+    video_url = url
+    Log(' --> Final playvideo_url: %s' % video_url)
 
-	return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(video_url))
-	
-	
+    return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(video_url))
+    
+    
