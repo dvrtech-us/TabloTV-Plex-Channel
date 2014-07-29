@@ -26,7 +26,7 @@ def MetadataObjectForURL(url):
                                 originally_available_at=Datetime.ParseDate(recordingDict['airdate'])
         )
     if recordingDict['recordingtype'] == 'TvShow':
-        title = str(recordingDict['showname']) + ' - ' + str(episodeDict['title'])
+        title = str(recordingDict['showname']) + ' - ' + str(recordingDict['title'])
         return EpisodeObject(
                             show = recordingDict['showname'] ,
                             art=recordingDict['backgroundart'] ,

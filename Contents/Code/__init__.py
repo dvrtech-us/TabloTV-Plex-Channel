@@ -243,26 +243,44 @@ def scheduled(title):
 
                 plexlog('airingdata loop',airingData)
                 # All commented out are set in TabloLive.pys helpers
-                oc.add(TVShowObject(
-
-                    rating_key=airingData['objectID'],
+                oc.add(
+                    #TVShowObject(
+PopupDirectoryObject(
+                    #rating_key=airingData['objectID'],
                     #show=airingData['title'],
                     title= displayeddate + ' - ' + airingData['title'],
                     summary='Original Air Date: ' + airingData['originalAirDate'] + ' Scheduled to Record: '+ recordingtype ,
                     # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
                     # directors = ,  #producers = ,  #guest_stars = ,
-                    key=int(unixtimestarted),  # season = airingData['seasonNumber'],
+                    key=Callback(nothing, title=title) , # season = airingData['seasonNumber'],
                     thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + '/stream/thumb?id=' + str(airingData['images'][0]['imageID']), fallback=NOTV_ICON),
                     # art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
-                    source_title='TabloTV'
+                    #source_title='TabloTV'
                     # duration = airingData['duration']  #description = airingData['description']
                 )
                 )
 
     oc.objects.sort(key=lambda obj: obj.key, reverse=False)
     return oc
+'''#########################################
+        Name: nothing()
 
+        Parameters: None
 
+        Handler: @route
+
+        Purpose:
+
+        Returns:
+
+        Notes:
+#########################################'''
+def nothing(title):
+    oc = scheduled(title)
+    oc.header='No More Information Available'
+    oc.message='No More Information Available'
+
+    return oc
 '''#########################################
         Name: Detected()
 
@@ -638,7 +656,7 @@ def allrecordings(title, url):
     loadData()
 
     oc = ObjectContainer()
-    oc.title1 = "All Recordings"
+    oc.title1 = title
     # Check for cached data, if we do not have any, run load data
     if "RecordedTV" not in Dict:
         loadData()
@@ -657,7 +675,7 @@ def allrecordings(title, url):
                 # altdict['episodeID'] = episodeDict['episodeID']
                 # myurl = Encodeobj('TabloRecording' , altdict)
 
-                oc.add(getepisode(episodeDict))
+                oc.add(getepisodeasmovie(episodeDict))
             except Exception as e:
                 Log(" Failed on episode " + str(e))
     # if we do have data, create episode objects for each episode
@@ -677,7 +695,7 @@ def allrecordings(title, url):
 
                 oc.add(getmovie(recordingDict))
             except Exception as e:
-                Log(" Failed on episode " + str(e))
+                Log(" Failed on movie " + str(e))
     # Resort the records so that the latest recorded episodes are at the top of the list
     oc.objects.sort(key=lambda obj: obj.originally_available_at, reverse=True)
     oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
@@ -931,7 +949,30 @@ def getmovie(episodeDict):
                             originally_available_at=Datetime.ParseDate(episodeDict['airdate'])
     )
 
+'''#########################################
+        Name: getepisode()
 
+        Parameters: None
+
+        Handler: @route
+
+        Purpose: Returns a episode object for a recorded episode
+
+        Returns:
+
+        Notes:
+#########################################'''
+def getepisodeasmovie(episodeDict):
+    return MovieObject(
+                            art=episodeDict['backgroundart'],
+                            url=Encodeobj('TabloRecording', episodeDict),
+                            title=episodeDict['showname'] + ' - ' + episodeDict['title'],
+                            summary=episodeDict['summary'],
+                            duration=episodeDict['duration'],
+                            thumb=Resource.ContentsOfURLWithFallback(url=episodeDict['url'] + 'snap.jpg',
+                                                                     fallback=episodeDict['seriesthumb']),
+                            originally_available_at=Datetime.ParseDate(episodeDict['airdate'])
+    )
 
 '''#########################################
         Name: getgoogleimage()
