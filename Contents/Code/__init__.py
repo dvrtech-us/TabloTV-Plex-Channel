@@ -1026,8 +1026,14 @@ def loadtablos():
         Dict['tabloips'] = getTabloIP()
         for tablo in Dict['tabloips']:
             count += 1
-            Dict['public_ip'] = str(tablo['public_ip'])
-            Dict['private_ip'] = str(tablo['private_ip'])
+            datetime = Datetime.Now()
+            last_seen_with_tz = Datetime.ParseDate(tablo['last_seen'])
+            last_seen_no_tz = last_seen_with_tz.replace(tzinfo=None)
+            secondssincelastseen = int(( datetime.utcnow() - last_seen_no_tz).total_seconds())
+            plexlog('loadtablos',secondssincelastseen)
+            if secondssincelastseen < (86400 * 2):
+                Dict['public_ip'] = str(tablo['public_ip'])
+                Dict['private_ip'] = str(tablo['private_ip'])
         # detect if the IP address has changed (most likely due to dhcp)
         # if it did, clear the dicts because the stored IP's will be incorrect
         # @ToDo remove all references in the dicts to the tablo's IP and use the Tablos' ID
@@ -1100,7 +1106,6 @@ def loadData():
 
 
         episodelistids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_ids', values=None, headers={}, cacheTime=60)
-
 
         #hash = Hash.MD5(JSON.StringFromObject(episodelistids))
         markforreload = True
@@ -1289,6 +1294,7 @@ def getTabloIP():
 
     plexlog('GetTabloIP',result)
     if 'success' in result:
+
         return result['cpes']
 
     else:
