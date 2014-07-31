@@ -1031,7 +1031,7 @@ def loadtablos():
             last_seen_no_tz = last_seen_with_tz.replace(tzinfo=None)
             secondssincelastseen = int(( datetime.utcnow() - last_seen_no_tz).total_seconds())
             plexlog('loadtablos',secondssincelastseen)
-            if secondssincelastseen < (86400 * 2):
+            if secondssincelastseen < (86400 ):
                 Dict['public_ip'] = str(tablo['public_ip'])
                 Dict['private_ip'] = str(tablo['private_ip'])
         # detect if the IP address has changed (most likely due to dhcp)
