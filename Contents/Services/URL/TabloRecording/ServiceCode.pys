@@ -25,6 +25,20 @@ def MetadataObjectForURL(url):
                                                                          fallback=recordingDict['seriesthumb']),
                                 originally_available_at=Datetime.ParseDate(recordingDict['airdate'])
         )
+    if recordingDict['recordingtype'] == 'Sports':
+
+        return MovieObject(
+                                art=recordingDict['backgroundart'],
+                                title=recordingDict['title'],
+                                summary=recordingDict['summary'],
+                                duration=recordingDict['duration'],
+                                thumb=Resource.ContentsOfURLWithFallback(url=recordingDict['url'] + 'snap.jpg',
+                                                                         fallback=recordingDict['seriesthumb']),
+                                originally_available_at=Datetime.ParseDate(recordingDict['airdate'])
+        )
+
+
+
     if recordingDict['recordingtype'] == 'TvShow':
         title = str(recordingDict['showname']) + ' - ' + str(recordingDict['title'])
         return EpisodeObject(

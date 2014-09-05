@@ -110,6 +110,8 @@ def MainMenu():
                                key=Callback(Shows, title="Shows", url=Dict['private_ip']), title="Shows"))
         oc.add(DirectoryObject(thumb=R('icon_movies_hd.jpg'),
                                key=Callback(Movies, title="Movies"), title="Movies"))
+        oc.add(DirectoryObject(thumb=R('icon_sports_hd.jpg'),
+                               key=Callback(Sports, title="Sports"), title="Sports"))
         oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),
                                key=Callback(allrecordings, title="All Recordings", url=Dict['private_ip']),
                                title="Recent Recordings"))
@@ -666,14 +668,6 @@ def allrecordings(title, url):
         for recnum, value in Dict["RecordedTV"].iteritems():
             try:
                 episodeDict = value
-                # The commented out code was to try to bypass a tuncation issue with plex sync
-                # Plex sync still did not work but this does resolve the truncation
-                # and may be needed later
-                # altdict = {}
-                # altdict['alt'] = 'Yes'
-                # altdict['private_ip'] = Dict['private_ip']
-                # altdict['episodeID'] = episodeDict['episodeID']
-                # myurl = Encodeobj('TabloRecording' , altdict)
 
                 oc.add(getepisodeasmovie(episodeDict))
             except Exception as e:
@@ -684,14 +678,15 @@ def allrecordings(title, url):
         for recnum, value in Dict["Movies"].iteritems():
             try:
                 recordingDict = value
-                # The commented out code was to try to bypass a tuncation issue with plex sync
-                # Plex sync still did not work but this does resolve the truncation
-                # and may be needed later
-                # altdict = {}
-                # altdict['alt'] = 'Yes'
-                # altdict['private_ip'] = Dict['private_ip']
-                # altdict['episodeID'] = episodeDict['episodeID']
-                # myurl = Encodeobj('TabloRecording' , altdict)
+
+                oc.add(getmovie(recordingDict))
+            except Exception as e:
+                Log(" Failed on movie " + str(e))
+    if "Sports" in Dict:
+
+        for recnum, value in Dict["Sports"].iteritems():
+            try:
+                recordingDict = value
 
                 oc.add(getmovie(recordingDict))
             except Exception as e:
@@ -735,7 +730,41 @@ def Movies(title):
     oc.objects.sort(key=lambda obj: obj.title)
 
     return oc
+'''#########################################
+        Name: Movies()
 
+        Parameters: None
+
+        Handler: @route
+
+        Purpose:
+
+        Returns:
+
+        Notes:
+#########################################'''
+
+
+@route(PREFIX + '/Sports', allow_sync=True)
+def Sports(title):
+    oc = ObjectContainer()
+    oc.title1 = "Sports"
+    # Update the data on every call since we intelligently load the actual metadata
+    loadData()
+
+    if "Sports" in Dict:
+
+        shows = {}
+        data = Dict["Sports"]
+        for recnum, value in data.iteritems():
+            episodeDict = value
+            try:
+                oc.add(getmovie(episodeDict))
+            except Exception as e:
+                Log(" Failed on Sports " + str(e))
+    oc.objects.sort(key=lambda obj: obj.title)
+
+    return oc
 '''#########################################
         Name: Shows()
 
@@ -938,6 +967,7 @@ def getepisode(episodeDict):
         Notes:
 #########################################'''
 def getmovie(episodeDict):
+
     return MovieObject(
                             art=episodeDict['backgroundart'],
                             url=Encodeobj('TabloRecording', episodeDict),
@@ -963,6 +993,7 @@ def getmovie(episodeDict):
         Notes:
 #########################################'''
 def getepisodeasmovie(episodeDict):
+
     return MovieObject(
                             art=episodeDict['backgroundart'],
                             url=Encodeobj('TabloRecording', episodeDict),
@@ -1113,6 +1144,8 @@ def loadData():
             Dict["RecordedTV"] = {}
         if "Movies" not in Dict:
             Dict["Movies"] = {}
+        if "Sports" not in Dict:
+            Dict["Sports"] = {}
         reccount = 0
 
 
@@ -1128,6 +1161,8 @@ def loadData():
                         recordingDict = getEpisodeDict(ipaddress,recnum,True)
                         if recordingDict['recordingtype'] == 'TvShow':
                             Dict["RecordedTV"][recnum]= recordingDict
+                        if recordingDict['recordingtype'] == 'Sports':
+                            Dict["Sports"][recnum]= recordingDict
                         if recordingDict['recordingtype'] == 'Movie':
                             Dict["Movies"][recnum]= recordingDict
                         reccount = reccount + 1
@@ -1225,10 +1260,14 @@ def getEpisodeDict(ipaddress,episodeID,UseMeta):
             root = 'recMovieAiring'
             if 'plot' in recordinginfo['recMovie']['jsonForClient']:
                 recordingDict['summary'] = recordinginfo['recMovie']['jsonForClient']['plot']
+        if 'recSportEvent' in recordinginfo:
+            recordingtype = 'Sports'
+            root = 'recSportEvent'
+
 
         if 'episodeTitle' in recordinginfo[root]['jsonFromTribune']['program']:
             recordingDict['title']  = recordinginfo[root]['jsonFromTribune']['program']['episodeTitle']
-        else:
+        elif 'title' in recordinginfo[root]['jsonFromTribune']['program']:
             recordingDict['title'] = recordinginfo[root]['jsonFromTribune']['program']['title']
         #Description is not always in the JSON, so test first
         if 'description' in recordinginfo[root]['jsonForClient']:
