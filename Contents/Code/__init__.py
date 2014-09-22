@@ -29,7 +29,7 @@ ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/Tablo'
 LOG_PREFIX = "***TabloTV: "
-VERSION = "0.99"
+VERSION = "0.991"
 FOLDERS_COUNT_IN_TITLE = True  # Global VAR used to enable counts on titles
 debugit = True
 
@@ -140,11 +140,14 @@ def MainMenu():
 
 @route(PREFIX + '/help')
 def Help(title):
+
     oc = ObjectContainer()
     oc.add(DirectoryObject(thumb=R('info.png'), key=Callback(About, title="About TabloTV Plex"), title="About"))
     oc.add(DirectoryObject(thumb=R('info.png'), key=Callback(detected, title="About Your Tablo"), title="About Your Tablo"))
     oc.add(DirectoryObject(thumb=R('icon-prefs.png'), key=Callback(ResetPlugin, title="Reset Plugin"),
                            title="Reset Plugin "))
+    #oc.add(DirectoryObject(thumb=R('icon-prefs.png'), key=Callback(DeleteDups, title="Delete Dups"),
+   #                        title="Delete Dups "))
     return oc
 
 
@@ -182,6 +185,38 @@ def ResetPlugin(title):
 
     return ObjectContainer(header=title, message='Plugin Reset Complete, Please go back to Main Menu Now')
 
+'''#########################################
+        Name: Delete Duplicates()
+
+        Parameters: None
+
+        Handler: @route
+
+        Purpose:
+
+        Returns:
+
+        Notes:
+#########################################'''
+
+
+@route(PREFIX + '/DeleteDups')
+def DeleteDups(title):
+
+    try:
+        myurl = "http://" + Dict['private_ip'] +":8886"
+        cmd = "/recordings/deleteRecordings"
+        parms = {"recordingsType":"recEpisode","recordings":[33810,33813]}
+        result = TabloAPI(myurl,cmd,parms)
+        plexlog('DeDup',result)
+
+        oc = ObjectContainer()
+        oc.title1 = title
+        ipaddress = Dict['private_ip']
+    except:
+        Log('Dup Failed')
+
+    return ObjectContainer(header=title, message='Plugin Reset Complete, Please go back to Main Menu Now')
 
 '''#########################################
         Name: About()
@@ -242,7 +277,9 @@ def scheduled(title):
                 recordingtype = 'Unknown'
                 if 'scheduleType' in airingData['schedule']:
                     recordingtype = airingData['schedule']['scheduleType']
-
+                imagedid = ''
+                if 'images' in airingData:
+                    imagedid = airingData['images'][0]['imageID']
                 plexlog('airingdata loop',airingData)
                 # All commented out are set in TabloLive.pys helpers
                 oc.add(
@@ -255,14 +292,14 @@ PopupDirectoryObject(
                     # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
                     # directors = ,  #producers = ,  #guest_stars = ,
                     key=Callback(nothing, title=title) , # season = airingData['seasonNumber'],
-                    thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + '/stream/thumb?id=' + str(airingData['images'][0]['imageID']), fallback=NOTV_ICON),
+                    thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + '/stream/thumb?id=' + str(imagedid), fallback=NOTV_ICON),
                     # art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
-                    #source_title='TabloTV'
+                    tagline=unixtimestarted
                     # duration = airingData['duration']  #description = airingData['description']
                 )
                 )
 
-    oc.objects.sort(key=lambda obj: obj.key, reverse=False)
+    oc.objects.sort(key=lambda obj: obj.tagline, reverse=False)
     return oc
 '''#########################################
         Name: nothing()

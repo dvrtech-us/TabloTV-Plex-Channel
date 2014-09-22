@@ -58,7 +58,7 @@ def MediaObjectsForURL(url):
 
 
 ####################################################################################################
-@indirect
+@indirectv
 def PlayVideo(url):
 	Log(LOG_PREFIX + "Starting GetLiveTVStream Call")
 	channelDict = Decodeobj('channel',url)
@@ -69,7 +69,7 @@ def PlayVideo(url):
 
 	
 	if 'relativePlaylistURL' in result['result']:
-		video_url = "http://" + channelDict['private_ip'] + '/' + result['result']['relativePlaylistURL']
+		video_url = "http://" + channelDict['private_ip'] + '/' + result['result']['relativePlaylistURL']d
 		Log(' --> Final playvideo_url: %s' % video_url)
 		
 		return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(video_url))
