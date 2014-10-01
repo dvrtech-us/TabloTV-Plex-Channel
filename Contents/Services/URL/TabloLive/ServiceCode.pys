@@ -58,7 +58,7 @@ def MediaObjectsForURL(url):
 
 
 ####################################################################################################
-@indirectv
+@indirect
 def PlayVideo(url):
 	Log(LOG_PREFIX + "Starting GetLiveTVStream Call")
 	channelDict = Decodeobj('channel',url)
