@@ -29,7 +29,7 @@ ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/Tablo'
 LOG_PREFIX = "***TabloTV: "
-VERSION = "0.991"
+VERSION = "0.992"
 FOLDERS_COUNT_IN_TITLE = True  # Global VAR used to enable counts on titles
 debugit = True
 
@@ -86,8 +86,15 @@ def MainMenu():
     try:
 
         count = loadtablos()
-        if count == 0:
+        if count == 0 and Prefs['ipoveride'] is None:
+            Log('here')
+            plexlog('Main Menu - API Fail', Prefs['ipoveride'])
             return ObjectContainer(header='Error', message='API Could Not Locate a tablo on your network')
+        if Prefs['ipoveride'] != '' and Prefs['ipoveride'] is not None:
+            plexlog('pref','using overidge')
+            plexlog('pref found',Prefs['ipoveride'])
+            Dict['public_ip'] = Prefs['ipoveride']
+            Dict['private_ip'] = Prefs['ipoveride']
     except:
         plexlog('Main Menu', 'Early LoadTablo Fail')
 
@@ -421,8 +428,18 @@ def loadLiveTVData(Dict):
 
     ipaddress = str(Dict['private_ip'])
 
-    channelids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_ids', values=None, headers={},
-                                    cacheTime=600)
+    if Prefs['ipoveride'] != '' and Prefs['ipoveride'] is not None:
+        plexlog('pref','using overidge')
+        plexlog('pref found',Prefs['ipoveride'])
+        ipaddress= Prefs['ipoveride']
+            
+
+    try:
+        channelids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_ids', values=None, headers={},cacheTime=600)
+    except Exception as e:
+        ("Parse Failed on Channel IDS" + str(e))
+        return 0
+    
 
     plexlog( 'LoadliveTVData channelids',channelids)
 
@@ -1169,12 +1186,19 @@ def cleartablodata():
     Notes:
 #########################################'''
 def loadData():
-
         ipaddress = str(Dict['private_ip'])
+        if Prefs['ipoveride'] != '' and Prefs['ipoveride'] is not None:
+            plexlog('pref','using overidge')
+            plexlog('pref found',Prefs['ipoveride'])
+            ipaddress= Prefs['ipoveride']
+            
+        
 
-
-        episodelistids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_ids', values=None, headers={}, cacheTime=60)
-
+        try:
+            episodelistids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_ids', values=None, headers={}, cacheTime=60)
+        except Exception as e:
+            ("Parse Failed on episode IDS" + str(e))
+            return 0
         #hash = Hash.MD5(JSON.StringFromObject(episodelistids))
         markforreload = True
         if "RecordedTV" not in Dict:
