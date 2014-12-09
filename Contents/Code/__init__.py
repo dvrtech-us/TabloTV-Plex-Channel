@@ -299,7 +299,7 @@ PopupDirectoryObject(
                     # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
                     # directors = ,  #producers = ,  #guest_stars = ,
                     key=Callback(nothing, title=title) , # season = airingData['seasonNumber'],
-                    thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + '/stream/thumb?id=' + str(imagedid), fallback=NOTV_ICON),
+                    thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + ':18080/stream/thumb?id=' + str(imagedid), fallback=NOTV_ICON),
                     # art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
                     tagline=unixtimestarted
                     # duration = airingData['duration']  #description = airingData['description']
@@ -608,17 +608,17 @@ def getChannelDict(ipaddress, intchid):
                 thumbFound = 0
                 for seriesimage in imageInfo:
                     if seriesimage['imageStyle'] == 'background' and artFound == 0:
-                        channelDict['art'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        channelDict['art'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
                         artFound = 1
                     if seriesimage['imageStyle'] == 'snapshot' and artFound == 0:
-                        channelDict['art'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        channelDict['art'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
                         artFound = 1
                     if seriesimage['imageStyle'] == 'thumbnail' and thumbFound == 0:
-                        channelDict['seriesThumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(
+                        channelDict['seriesThumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
                             seriesimage['imageID'])
                         thumbFound = 1
                     if seriesimage['imageStyle'] == 'cover' and thumbFound == 0:
-                        channelDict['seriesThumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(
+                        channelDict['seriesThumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
                             seriesimage['imageID'])
                         thumbFound = 1
             else:
@@ -1306,9 +1306,9 @@ def getEpisodeDict(ipaddress,episodeID,UseMeta):
                 for seriesimage in recordinginfo['recSeries']['imageJson']['images']:
                     #Log(LOG_PREFIX + 'imageType = %s', seriesimage['imageType'])
                     if seriesimage['imageType'] == 'iconic_4x3_large':
-                        recordingDict['backgroundart'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        recordingDict['backgroundart'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
                     if seriesimage['imageType'] == 'series_3x4_small':
-                        recordingDict['seriesthumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        recordingDict['seriesthumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
             recordingDict['showtotalepisodes'] = int(recordinginfo['recSeries']['jsonFromTribune']['totalEpisodes'])
             recordingDict['showname'] = recordinginfo[root]['jsonFromTribune']['program']['title']
             recordingDict['showid'] = recordinginfo['recSeries']['jsonFromTribune']['seriesId']
