@@ -102,8 +102,8 @@ def MainMenu():
 
     if 'private_ip' not in Dict:
         Log('privateIPERROR')
-        return ObjectContainer(header='Error', message=' Could Not Locate a tablo on your network')
-
+        oc.add(PrefsObject(title='Could Not Locate a tablo on your network', thumb=R(ICON_PREFS)))
+        return oc
     else:
         try:
             episodelistids = JSON.ObjectFromURL('http://' + Dict['private_ip'] + ':18080/plex/rec_ids', values=None,
@@ -126,7 +126,7 @@ def MainMenu():
                                key=Callback(scheduled, title="Scheduled Recordings"),
                                title="Scheduled Recordings"))
         oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'), key=Callback(Help, title="Help"), title="Help"))
-
+		oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
     return oc
 
 
