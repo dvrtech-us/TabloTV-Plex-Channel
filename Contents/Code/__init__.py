@@ -29,7 +29,7 @@ ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/Tablo'
 LOG_PREFIX = "***TabloTV: "
-VERSION = "0.991"
+VERSION = "0.992"
 FOLDERS_COUNT_IN_TITLE = True  # Global VAR used to enable counts on titles
 debugit = True
 
@@ -86,8 +86,15 @@ def MainMenu():
     try:
 
         count = loadtablos()
-        if count == 0:
+        if count == 0 and Prefs['ipoveride'] is None:
+            Log('here')
+            plexlog('Main Menu - API Fail', Prefs['ipoveride'])
             return ObjectContainer(header='Error', message='API Could Not Locate a tablo on your network')
+        if Prefs['ipoveride'] != '' and Prefs['ipoveride'] is not None:
+            plexlog('pref','using overidge')
+            plexlog('pref found',Prefs['ipoveride'])
+            Dict['public_ip'] = Prefs['ipoveride']
+            Dict['private_ip'] = Prefs['ipoveride']
     except:
         plexlog('Main Menu', 'Early LoadTablo Fail')
 
@@ -95,8 +102,8 @@ def MainMenu():
 
     if 'private_ip' not in Dict:
         Log('privateIPERROR')
-        return ObjectContainer(header='Error', message=' Could Not Locate a tablo on your network')
-
+        oc.add(PrefsObject(title='Could Not Locate a tablo on your network', thumb=R(ICON_PREFS)))
+        return oc
     else:
         try:
             episodelistids = JSON.ObjectFromURL('http://' + Dict['private_ip'] + ':18080/plex/rec_ids', values=None,
@@ -119,7 +126,7 @@ def MainMenu():
                                key=Callback(scheduled, title="Scheduled Recordings"),
                                title="Scheduled Recordings"))
         oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'), key=Callback(Help, title="Help"), title="Help"))
-
+		oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
     return oc
 
 
@@ -292,7 +299,7 @@ PopupDirectoryObject(
                     # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
                     # directors = ,  #producers = ,  #guest_stars = ,
                     key=Callback(nothing, title=title) , # season = airingData['seasonNumber'],
-                    thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + '/stream/thumb?id=' + str(imagedid), fallback=NOTV_ICON),
+                    thumb=Resource.ContentsOfURLWithFallback(url='http://' + ipaddress + ':18080/stream/thumb?id=' + str(imagedid), fallback=NOTV_ICON),
                     # art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
                     tagline=unixtimestarted
                     # duration = airingData['duration']  #description = airingData['description']
@@ -421,8 +428,18 @@ def loadLiveTVData(Dict):
 
     ipaddress = str(Dict['private_ip'])
 
-    channelids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_ids', values=None, headers={},
-                                    cacheTime=600)
+    if Prefs['ipoveride'] != '' and Prefs['ipoveride'] is not None:
+        plexlog('pref','using overidge')
+        plexlog('pref found',Prefs['ipoveride'])
+        ipaddress= Prefs['ipoveride']
+            
+
+    try:
+        channelids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_ids', values=None, headers={},cacheTime=600)
+    except Exception as e:
+        ("Parse Failed on Channel IDS" + str(e))
+        return 0
+    
 
     plexlog( 'LoadliveTVData channelids',channelids)
 
@@ -591,17 +608,17 @@ def getChannelDict(ipaddress, intchid):
                 thumbFound = 0
                 for seriesimage in imageInfo:
                     if seriesimage['imageStyle'] == 'background' and artFound == 0:
-                        channelDict['art'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        channelDict['art'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
                         artFound = 1
                     if seriesimage['imageStyle'] == 'snapshot' and artFound == 0:
-                        channelDict['art'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        channelDict['art'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
                         artFound = 1
                     if seriesimage['imageStyle'] == 'thumbnail' and thumbFound == 0:
-                        channelDict['seriesThumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(
+                        channelDict['seriesThumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
                             seriesimage['imageID'])
                         thumbFound = 1
                     if seriesimage['imageStyle'] == 'cover' and thumbFound == 0:
-                        channelDict['seriesThumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(
+                        channelDict['seriesThumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
                             seriesimage['imageID'])
                         thumbFound = 1
             else:
@@ -1169,12 +1186,19 @@ def cleartablodata():
     Notes:
 #########################################'''
 def loadData():
-
         ipaddress = str(Dict['private_ip'])
+        if Prefs['ipoveride'] != '' and Prefs['ipoveride'] is not None:
+            plexlog('pref','using overidge')
+            plexlog('pref found',Prefs['ipoveride'])
+            ipaddress= Prefs['ipoveride']
+            
+        
 
-
-        episodelistids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_ids', values=None, headers={}, cacheTime=60)
-
+        try:
+            episodelistids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_ids', values=None, headers={}, cacheTime=60)
+        except Exception as e:
+            ("Parse Failed on episode IDS" + str(e))
+            return 0
         #hash = Hash.MD5(JSON.StringFromObject(episodelistids))
         markforreload = True
         if "RecordedTV" not in Dict:
@@ -1282,9 +1306,9 @@ def getEpisodeDict(ipaddress,episodeID,UseMeta):
                 for seriesimage in recordinginfo['recSeries']['imageJson']['images']:
                     #Log(LOG_PREFIX + 'imageType = %s', seriesimage['imageType'])
                     if seriesimage['imageType'] == 'iconic_4x3_large':
-                        recordingDict['backgroundart'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        recordingDict['backgroundart'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
                     if seriesimage['imageType'] == 'series_3x4_small':
-                        recordingDict['seriesthumb'] = 'http://' + ipaddress + '/stream/thumb?id=' + str(seriesimage['imageID'])
+                        recordingDict['seriesthumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(seriesimage['imageID'])
             recordingDict['showtotalepisodes'] = int(recordinginfo['recSeries']['jsonFromTribune']['totalEpisodes'])
             recordingDict['showname'] = recordinginfo[root]['jsonFromTribune']['program']['title']
             recordingDict['showid'] = recordinginfo['recSeries']['jsonFromTribune']['seriesId']
