@@ -1,8 +1,14 @@
 [
 {
-    "id": "ipoveride",
+    "id": "OVERRIDE_IP",
     "type": "text",
-    "label": "IP Override",
+    "label": "Override IP ",
+    "default": ""
+  },
+  {
+    "id": "OVERRIDE_PORT",
+    "type": "text",
+    "label": "Override Port",
     "default": ""
   }
 ]
