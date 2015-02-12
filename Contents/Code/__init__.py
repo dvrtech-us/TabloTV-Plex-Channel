@@ -1318,9 +1318,3 @@ def TabloAPI(tablo_server_id,cmd,parms):
     return result
 
 ### PRELOAD
-try:
-	build_tablos()
-	sync_database_recordings(999)
-	sync_database_channels(200)
-except:
-	Log('Fail in preload')
