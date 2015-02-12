@@ -597,6 +597,126 @@ def livetv():
     return oc
 
 '''#########################################
+        Name: getlivetvepisode()
+
+        Parameters: None
+
+        Handler: @route
+
+        Purpose:
+
+        Returns:
+
+        Notes:
+#########################################'''
+@route(PREFIX + '/getlivetvepisode')
+def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
+    tplog('getliveepisode',channelDict)
+    eptitle = ''
+    epsummary = ''
+    epshow = ''
+    eporder = ''
+    epobjectID = 0
+    if ocflag:
+        get_channel_dict(tablo_server_id,channelDict)
+    try:
+        eptitle = channelDict['title'] + '-' + channelDict['epTitle']
+        epsummary = channelDict['description']
+        epshow = channelDict['channelNumber'] + ': ' + channelDict['callSign']
+        eporder = channelDict['order']
+        epobjectID = int(channelDict['objectID'])
+    except Exception as e:
+        tplog('841',e)
+    episode = EpisodeObject(
+
+                    key=Callback(playlive, objectID=epobjectID,tablo_server_id=tablo_server_id,),
+                    rating_key=epobjectID,
+                    show=epshow,
+                    title=eptitle,
+                    summary=epsummary,
+                    absolute_index=eporder,  # season = airingData['seasonNumber'],
+                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
+                    source_title='TabloTV',
+
+                )
+
+    return episode
+'''#########################################
+        Name: playlive()
+
+        Parameters: None
+
+        Handler: @route
+
+        Purpose:
+
+        Returns:
+
+        Notes:
+#########################################'''
+
+@route(PREFIX + '/playlive')
+def playlive(objectID,tablo_server_id, pregenurl = ''):
+    if pregenurl != '':
+        tplog(' --> playlive ocflagged: ', pregenurl)
+        episode = EpisodeObject(
+                                key=Callback(playlive,objectID=objectID,tablo_server_id=tablo_server_id, pregenurl = pregenurl),
+                                rating_key=objectID,
+
+                                title='Start Live TV',
+
+                                items=[
+                                        MediaObject(
+                                            parts = [
+                                                PartObject(
+                                                    key=HTTPLiveStreamURL(ocflag)
+                                                )
+                                            ],
+
+                                            optimized_for_streaming = True,
+                                        )
+                                    ]
+                        )
+        return ObjectContainer(objects=[episode])
+
+    cmd = "/player/watchLive"
+    parms = {"channelid": int(objectID)}
+    result = TabloAPI(tablo_server_id,cmd,parms)
+    tplog(' --> playlive result: ', result)
+    if 'relativePlaylistURL' in result['result']:
+        video_url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + '/' + result['result']['relativePlaylistURL']
+        tplog(' --> playlive video_url: ', video_url)
+        #return HTTPLiveStreamURL(video_url)
+        episode = EpisodeObject(
+                            key=Callback(playlive,objectID=objectID,tablo_server_id=tablo_server_id, pregenurl = video_url),
+                            rating_key=objectID,
+
+                            title='Start Live TV',
+
+                            items=[
+                                    MediaObject(
+                                        parts = [
+                                            PartObject(
+                                                key=HTTPLiveStreamURL(video_url)
+                                            )
+                                        ],
+
+                                        optimized_for_streaming = True,
+                                    )
+                                ]
+                    )
+
+        return episode
+
+    else:
+        return MessageContainer(
+            "Error",
+            result['result']['error']['errorDesc']
+        )
+    #return HTTPLiveStreamURL(url)
+
+
+'''#########################################
         Name: recentrecordings()
 
         Parameters: None
@@ -839,97 +959,7 @@ def sports():
 
 
 
-@route(PREFIX + '/getlivetvepisode')
-def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
-    tplog('getliveepisode',channelDict)
-    eptitle = ''
-    epsummary = ''
-    epshow = ''
-    eporder = ''
-    epobjectID = 0
-    if ocflag:
-        get_channel_dict(tablo_server_id,channelDict)
-    try:
-        eptitle = channelDict['title'] + '-' + channelDict['epTitle']
-        epsummary = channelDict['description']
-        epshow = channelDict['channelNumber'] + ': ' + channelDict['callSign']
-        eporder = channelDict['order']
-        epobjectID = int(channelDict['objectID'])
-    except Exception as e:
-        tplog('841',e)
-    episode = EpisodeObject(
 
-                    key=Callback(playlive, objectID=epobjectID,tablo_server_id=tablo_server_id,),
-                    rating_key=epobjectID,
-                    show=epshow,
-                    title=eptitle,
-                    summary=epsummary,
-                    absolute_index=eporder,  # season = airingData['seasonNumber'],
-                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
-                    source_title='TabloTV',
-
-                )
-
-    return episode
-@route(PREFIX + '/playlive')
-def playlive(objectID,tablo_server_id, pregenurl = ''):
-    if pregenurl != '':
-        tplog(' --> playlive ocflagged: ', pregenurl)
-        episode = EpisodeObject(
-                                key=Callback(playlive,objectID=objectID,tablo_server_id=tablo_server_id, pregenurl = pregenurl),
-                                rating_key=objectID,
-
-                                title='Start Live TV',
-
-                                items=[
-                                        MediaObject(
-                                            parts = [
-                                                PartObject(
-                                                    key=HTTPLiveStreamURL(ocflag)
-                                                )
-                                            ],
-
-                                            optimized_for_streaming = True,
-                                        )
-                                    ]
-                        )
-        return ObjectContainer(objects=[episode])
-
-    cmd = "/player/watchLive"
-    parms = {"channelid": int(objectID)}
-    result = TabloAPI(tablo_server_id,cmd,parms)
-    tplog(' --> playlive result: ', result)
-    if 'relativePlaylistURL' in result['result']:
-        video_url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + '/' + result['result']['relativePlaylistURL']
-        tplog(' --> playlive video_url: ', video_url)
-        #return HTTPLiveStreamURL(video_url)
-        episode = EpisodeObject(
-                            key=Callback(playlive,objectID=objectID,tablo_server_id=tablo_server_id, pregenurl = video_url),
-                            rating_key=objectID,
-
-                            title='Start Live TV',
-
-                            items=[
-                                    MediaObject(
-                                        parts = [
-                                            PartObject(
-                                                key=HTTPLiveStreamURL(video_url)
-                                            )
-                                        ],
-
-                                        optimized_for_streaming = True,
-                                    )
-                                ]
-                    )
-
-        return episode
-
-    else:
-        return MessageContainer(
-            "Error",
-            result['result']['error']['errorDesc']
-        )
-    #return HTTPLiveStreamURL(url)
 
 
 
@@ -1317,4 +1347,4 @@ def TabloAPI(tablo_server_id,cmd,parms):
         tplog('TabloAPI',  "End TabloAPI Call")
     return result
 
-### PRELOAD
+
