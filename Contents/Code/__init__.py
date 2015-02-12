@@ -17,7 +17,7 @@ ICON = 'icon.png'
 NOTV_ICON = 'no_tv_110x150.jpg'
 ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
-PREFIX = '/video/Tablo2'
+PREFIX = '/video/tablo'
 LOG_PREFIX = "***TabloTV2: "
 ASSOCSERVER = 'https://api.tablotv.com/assocserver/getipinfo/'
 VERSION = "2.0"
@@ -143,8 +143,8 @@ def sync_database_recordings(LoadLimit = 50):
                 a = True
                 #tplog('sync_database Recording ID ',recordingID)
             else:
-                return recordingID
                 tplog('sync_database Recording ID ignored due to load limit',recordingID)
+                return recordingID
             if not recordingID in Dict['CPES'][tablo_server_id]['RECORDINGS'] and count < LoadLimit:
 
                 if count < LoadLimit:
@@ -512,7 +512,7 @@ def Start():
     HTTP.CacheTime = CACHE_1HOUR
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:16.0) Gecko/20100101 Firefox/16.0'
     build_tablos()
-    sync_database_recordings(500)
+    sync_database_recordings(100)
     sync_database_channels(200)
 
 '''#########################################
@@ -539,8 +539,7 @@ def MainMenu():
     if nomoretosync > 1:
         oc = ObjectContainer()
         oc.no_cache = True
-        oc.replace_parent = True
-        oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(MainMenu), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
+        oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(stillsyncing), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
         return oc
 
     oc = ObjectContainer()
@@ -550,12 +549,20 @@ def MainMenu():
     oc.add(DirectoryObject(thumb=R('icon-TVShow.png'),key=Callback(shows), title="TV Shows"))
     oc.add(DirectoryObject(thumb=R('icon_sports_hd.png'),key=Callback(sports), title="Sports"))
     oc.add(DirectoryObject(thumb=R('icon-Recordings.png'),key=Callback(recentrecordings), title="Recent Recordings"))
-    oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.jpg'),
+    oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.png'),
                                key=Callback(scheduled, title="Scheduled Recordings"),
                                title="Scheduled Recordings"))
-    oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'), key=Callback(Help, title="Help"), title="Help"))
+    oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(Help, title="Help"), title="Help"))
     return oc
+def stillsyncing():
+    nomoretosync = sync_database_recordings(50)
 
+    if nomoretosync > 1:
+        oc = ObjectContainer()
+        oc.no_cache = True
+        oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(MainMenu), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
+        return oc
+    return MainMenu()
 '''#########################################
         Name: livetv()
 
@@ -577,7 +584,7 @@ def livetv():
 
     oc = ObjectContainer()
     oc.no_cache = True
-    oc.title1 = 'livetv'
+    oc.title1 = 'Live TV'
     recordings = {}
     for tablo_server_id,cpe in Dict['CPES'].iteritems():
         for id,channelDict in cpe['CHANNELS'].iteritems():
@@ -843,7 +850,7 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
     if ocflag:
         get_channel_dict(tablo_server_id,channelDict)
     try:
-        eptitle = channelDict['epTitle']
+        eptitle = channelDict['title'] + '-' + channelDict['epTitle']
         epsummary = channelDict['description']
         epshow = channelDict['channelNumber'] + ': ' + channelDict['callSign']
         eporder = channelDict['order']
@@ -858,7 +865,7 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
                     title=eptitle,
                     summary=epsummary,
                     absolute_index=eporder,  # season = airingData['seasonNumber'],
-                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
+                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
                     source_title='TabloTV',
 
                 )
@@ -1309,3 +1316,11 @@ def TabloAPI(tablo_server_id,cmd,parms):
         tplog('TabloAPI', result)
         tplog('TabloAPI',  "End TabloAPI Call")
     return result
+
+### PRELOAD
+try:
+	build_tablos()
+	sync_database_recordings(999)
+	sync_database_channels(200)
+except:
+	Log('Fail in preload')
