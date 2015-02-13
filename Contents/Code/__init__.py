@@ -34,6 +34,20 @@ def tplog(location, message):
 ############################################
 ###########  "Database" FUNCTIONS   ###########
 ############################################
+
+'''#########################################
+        Name: build_tablos()
+
+        Parameters: None
+
+        Handler: @handler -
+
+        Purpose: Download the information for each tablo that has been active in 24 hours
+
+        Returns:
+
+        Notes:
+#########################################'''
 def build_tablos():
     # build a list of Tablos from the Association Server
     count = 0
@@ -42,10 +56,11 @@ def build_tablos():
         if 'OVERRIDE_IP' in Prefs:
             if Prefs['OVERRIDE_IP'] != '' and Prefs['OVERRIDE_IP'] is not None:
                 tablos = {}
-                tablos[0]['PRIVATE_IP'] = Prefs['OVERRIDE_IP']
-                tablos[0]['PRIVATE_PORT'] = Prefs['OVERRIDE_PORT']
-                tablos[0]['PUBLIC_IP'] = Prefs['OVERRIDE_IP']
-                tablos[0]['PUBLIC_PORT'] = Prefs['OVERRIDE_PORT']
+                tablos['MANUAL'] = {}
+                tablos['MANUAL']['PRIVATE_IP'] = Prefs['OVERRIDE_IP']
+                tablos['MANUAL']['PRIVATE_PORT'] = Prefs['OVERRIDE_PORT']
+                tablos['MANUAL']['PUBLIC_IP'] = Prefs['OVERRIDE_IP']
+                tablos['MANUAL']['PUBLIC_PORT'] = Prefs['OVERRIDE_PORT']
                 Dict['tablos'] = tablos
                 return True
     except Exception as e:
@@ -97,6 +112,7 @@ def build_tablos():
                     tablos[tablo_server_id]['PUBLIC_IP'] = str(cpe['public_ip'])
                     tablos[tablo_server_id]['PRIVATE_IP'] = str(cpe['private_ip'])
                     tablos[tablo_server_id]['PRIVATE_PORT'] = '18080'
+                    tablos[tablo_server_id]['PRIVATE_ROKUPORT'] = '18080'
                     tablos[tablo_server_id]['SERVER_ID'] = tablo_server_id
             Dict['CPES'] = tablos
 
@@ -114,7 +130,19 @@ def build_tablos():
 
 
 
+'''#########################################
+        Name: sync_database_recordings()
 
+        Parameters: None
+
+        Handler: @handler -
+
+        Purpose: Download the recordings and delete any recordings from the database that are deleted on the Tablo
+
+        Returns:
+
+        Notes:
+#########################################'''
 def sync_database_recordings(LoadLimit = 50):
     if DEBUG_IT:
             tplog('Start sync_database  ',LoadLimit)
@@ -122,7 +150,7 @@ def sync_database_recordings(LoadLimit = 50):
     count = 0
     if DEBUG_IT:
         tplog('-- sync_database CPES ','')
-       # tplog('-- sync_database CPES ',Dict['CPES'])
+    #Loop Through each tablo and download the list of recordings
     for tablo_server_id,cpe in Dict['CPES'].iteritems():
         if DEBUG_IT:
             tplog('sync_database cpe found ',cpe['NAME'])
@@ -131,11 +159,13 @@ def sync_database_recordings(LoadLimit = 50):
             cpe_recording_list = JSON.ObjectFromURL('http://' + cpe['PRIVATE_IP'] + ':'+ cpe['PRIVATE_PORT'] +'/plex/rec_ids', values=None, headers={}, cacheTime=60)
         except Exception as e:
             tplog("Error Reading CPE" ,e)
+
+
         if DEBUG_IT:
             tplog('sync_database Recordings found ','')
-            #tplog('sync_database Recordings found ',cpe_recording_list)
 
-        #Loop Through and add recording information to the database
+
+        #Loop Through the current tablo and add recording information to the database
         cpe_recording_list['ids'].sort();
         for recordingIDint in cpe_recording_list['ids']:
             recordingID = str(recordingIDint)
@@ -164,10 +194,10 @@ def sync_database_recordings(LoadLimit = 50):
         tplog("sync_database Checking for Deletions" ,"")
         Temp = Dict['CPES'][tablo_server_id]['RECORDINGS'].copy()
         try:
-            #tplog('sync_database delete checking against' , cpe_recording_list['ids'])
+            #Loop Through each recording and delete records from the database that are no longer on the Tablo
             for existing_recording_id in Temp:
+                #convert to int to match data type
                 int_existing_recording_id = int(existing_recording_id)
-                #tplog('sync_database delete checking' , int_existing_recording_id)
                 if not int(existing_recording_id) in cpe_recording_list['ids']:
                     del Dict['CPES'][tablo_server_id]['RECORDINGS'][existing_recording_id]
                     tplog('sync_database Deleting' , int_existing_recording_id)
@@ -175,12 +205,25 @@ def sync_database_recordings(LoadLimit = 50):
             tplog("sync_database Error Deleting" ,e)
     return 1
 
+'''#########################################
+        Name: sync_database_channels()
+
+        Parameters: None
+
+        Handler: @handler -
+
+        Purpose: Sync the channels and update any information that is no longer current
+
+        Returns:
+
+        Notes:
+#########################################'''
 def sync_database_channels(LoadLimit = 200):
     if DEBUG_IT:
             tplog('Start sync_database_channels  ',LoadLimit)
-    #Loop through Each Tablo
-    count = 0
 
+    #Loop through Each Tablo and download channel information
+    count = 0
     for tablo_server_id,cpe in Dict['CPES'].iteritems():
         #Load Channel Information
         try:
@@ -190,11 +233,16 @@ def sync_database_channels(LoadLimit = 200):
             cpe_channel_list = JSON.ObjectFromURL(url, values=None, headers={}, cacheTime=60)
 
             for chid in cpe_channel_list['ids']:
+                #Use a Boolean to decide whether we need to load the channel information
                 loadchannel = False
+
+                #If the channel ID is not in our local database add it
+
                 if chid not in Dict['CPES'][tablo_server_id]['CHANNELS']:
                     tplog('sync_database_channels - First Load: ', chid)
                     loadchannel = True
                 else:
+                #If it is already in the database check if the program has ended, if it is close, re-sync the data
                     datetime = Datetime.Now()
                     startdatetimetz = Datetime.ParseDate(Dict['CPES'][tablo_server_id]['CHANNELS'][chid]['airDate'])
                     startdatetime = startdatetimetz.replace(tzinfo=None)
@@ -206,6 +254,8 @@ def sync_database_channels(LoadLimit = 200):
                     if secondsintoprogram > (durationinseconds- 60):
                         tplog('sync_database_channels - ReLoad: ', chid)
                         loadchannel = True
+
+                #If the channel was marked for reload, re-download the dict into the channels array
                 if loadchannel:
                     channelDict = get_channel_dict(tablo_server_id, chid)
                     channelDict['order'] = i
@@ -214,11 +264,26 @@ def sync_database_channels(LoadLimit = 200):
         except Exception as e:
             tplog("Error Reading CPE Channels" ,e)
 
+'''#########################################
+        Name: get_channel_dict()
+
+        Parameters: None
+
+        Handler: @handler -
+
+        Purpose: Get channel information using tablo_server_id and the channel ID
+
+        Returns:
+
+        Notes:
+#########################################'''
 def get_channel_dict(tablo_server_id, intchid):
     chid = str(intchid)
     channelDict = {}
 
     tplog('get_channel_dict', 'Requesting chid' + chid)
+
+    #download the channel information from the tablo
     try:
         channelInfo = JSON.ObjectFromURL('http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+  Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/plex/ch_info?id=' + str(chid), values=None,
                                           headers={}, cacheTime=60)
@@ -226,7 +291,7 @@ def get_channel_dict(tablo_server_id, intchid):
     except Exception as e:
         tplog('getChannelDict', "Call to CGI ch_info failed!")
         return e
-
+    #Check for Meta data in the JSON response, if present infill the data
     if 'meta' in channelInfo:
         chinfo = channelInfo['meta']
 
@@ -269,6 +334,8 @@ def get_channel_dict(tablo_server_id, intchid):
 
         # set default channelNumber AFTER trying to get the number major and number minor
         channelDict['channelNumber'] = str(chinfo['channelNumberMajor']) + '-' + str(chinfo['channelNumberMinor'])
+
+
 
         if chinfo['dataAvailable'] == 1:
 
@@ -413,15 +480,18 @@ def get_channel_dict(tablo_server_id, intchid):
     Notes:
 #########################################'''
 def getEpisodeDict(recordingobj,recordingID):
+
     recordingDict = {}
     recordingtype = 'Unknown'
     recordinginfo = recordingobj
+
+    #if we have meta data, load the data into our storage dict
     if 'meta' in recordingobj or UseMeta:
 
         recordingDict['recordingID'] = recordingID
         #use image url to retrieve show images.  Snap.jpg isn't always available
-        recordingDict['seriesthumb'] = recordingID + 'snap.jpg'
-        recordingDict['backgroundart'] = recordingID + 'snap.jpg'
+        recordingDict['seriesthumb'] = recordingID
+        recordingDict['backgroundart'] = recordingID
         recordingDict['summary'] = 'No Summary'
         root= 'other'
         '''#### CAPTURE EPISODE ONLY INFO ####### '''
@@ -534,6 +604,8 @@ def Start():
 def MainMenu():
 
     build_tablos()
+
+    #Attempt to better handle the first sync of the database by prompting to load all the data
     nomoretosync = sync_database_recordings(50)
 
     if nomoretosync > 1:
@@ -554,6 +626,20 @@ def MainMenu():
                                title="Scheduled Recordings"))
     oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(Help, title="Help"), title="Help"))
     return oc
+
+'''#########################################
+        Name: stillsyncing()
+
+        Parameters: None
+
+        Handler: @handler -
+
+        Purpose: Provide feedback on remaining recordings to load
+
+        Returns:
+
+        Notes:
+#########################################'''
 def stillsyncing():
     nomoretosync = sync_database_recordings(50)
 
@@ -563,6 +649,7 @@ def stillsyncing():
         oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(MainMenu), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
         return oc
     return MainMenu()
+
 '''#########################################
         Name: livetv()
 
@@ -576,20 +663,21 @@ def stillsyncing():
 
         Notes:
 #########################################'''
-
-
 @route(PREFIX + '/livetv', allow_sync=True)
 def livetv():
+    #Sync the Channels from the Tablo
     sync_database_channels()
 
     oc = ObjectContainer()
     oc.no_cache = True
     oc.title1 = 'Live TV'
+
+    #Add the channels from all Tablos
     recordings = {}
     for tablo_server_id,cpe in Dict['CPES'].iteritems():
         for id,channelDict in cpe['CHANNELS'].iteritems():
             #tplog('recordingDict',recordingDict)
-            tplog('id',channelDict)
+            tplog('livetv id',channelDict)
             oc.add(getlivetvepisode(channelDict,tablo_server_id))
 
 
@@ -641,6 +729,7 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
                 )
 
     return episode
+
 '''#########################################
         Name: playlive()
 
