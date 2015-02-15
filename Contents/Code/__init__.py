@@ -14,7 +14,7 @@ import pprint
 TITLE = 'Tablo'
 ART = 'channel_splash_hd.png'
 ICON = 'icon.png'
-NOTV_ICON = 'no_tv_110x150.jpg'
+NOTV_ICON = 'icon-no_image.png'
 ICON_PREFS = 'icon_settings_hd.jpg'
 SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/tablo'
@@ -611,7 +611,7 @@ def MainMenu():
     if nomoretosync > 1:
         oc = ObjectContainer()
         oc.no_cache = True
-        oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(stillsyncing), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
+        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(stillsyncing), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
         return oc
 
     oc = ObjectContainer()
@@ -646,7 +646,7 @@ def stillsyncing():
     if nomoretosync > 1:
         oc = ObjectContainer()
         oc.no_cache = True
-        oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(MainMenu), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
+        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(MainMenu), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
         return oc
     return MainMenu()
 
