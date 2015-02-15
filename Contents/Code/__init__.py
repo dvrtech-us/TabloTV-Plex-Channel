@@ -666,7 +666,7 @@ def stillsyncing():
 @route(PREFIX + '/livetv', allow_sync=True)
 def livetv():
     #Sync the Channels from the Tablo
-    sync_database_channels()
+    #sync_database_channels()
 
     oc = ObjectContainer()
     oc.no_cache = True
@@ -699,14 +699,18 @@ def livetv():
 #########################################'''
 @route(PREFIX + '/getlivetvepisode')
 def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
+    if ocflag:
+        channelDict = get_channel_dict(tablo_server_id, channelDict)
+        channelDict['order'] = 1
+        url = playlive(channelDict['objectID'],tablo_server_id)
     tplog('getliveepisode',channelDict)
     eptitle = ''
     epsummary = ''
     epshow = ''
     eporder = ''
     epobjectID = 0
-    if ocflag:
-        get_channel_dict(tablo_server_id,channelDict)
+    epchannelDict = channelDict
+
     try:
         eptitle = channelDict['title'] + '-' + channelDict['epTitle']
         epsummary = channelDict['description']
@@ -717,7 +721,21 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
         tplog('841',e)
     episode = EpisodeObject(
 
-                    key=Callback(playlive, objectID=epobjectID,tablo_server_id=tablo_server_id,),
+                    key=Callback(getlivetvepisode, channelDict=epobjectID,tablo_server_id=tablo_server_id,ocflag = True),
+                    rating_key=epobjectID,
+                    show=epshow,
+                    title=eptitle,
+                    summary=epsummary,
+                    absolute_index=eporder,  # season = airingData['seasonNumber'],
+                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
+                    source_title='TabloTV'
+
+
+                )
+    if ocflag:
+        episode = EpisodeObject(
+
+                    key=Callback(getlivetvepisode, channelDict=epobjectID,tablo_server_id=tablo_server_id,ocflag = True),
                     rating_key=epobjectID,
                     show=epshow,
                     title=eptitle,
@@ -725,9 +743,21 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
                     absolute_index=eporder,  # season = airingData['seasonNumber'],
                     thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
                     source_title='TabloTV',
+                    items=[
+                                    MediaObject(
+                                        parts = [
+                                            PartObject(
+                                                key=HTTPLiveStreamURL(url)
+
+                                            )
+                                        ],
+
+                                        optimized_for_streaming = True,
+                                    )
+                                ]
 
                 )
-
+        return ObjectContainer(objects=[episode])
     return episode
 
 '''#########################################
@@ -745,28 +775,10 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
 #########################################'''
 
 @route(PREFIX + '/playlive')
-def playlive(objectID,tablo_server_id, pregenurl = ''):
-    if pregenurl != '':
-        tplog(' --> playlive ocflagged: ', pregenurl)
-        episode = EpisodeObject(
-                                key=Callback(playlive,objectID=objectID,tablo_server_id=tablo_server_id, pregenurl = pregenurl),
-                                rating_key=objectID,
+def playlive(objectID,tablo_server_id):
+    tplog(' --> playlive  is Called',objectID)
 
-                                title='Start Live TV',
 
-                                items=[
-                                        MediaObject(
-                                            parts = [
-                                                PartObject(
-                                                    key=HTTPLiveStreamURL(ocflag)
-                                                )
-                                            ],
-
-                                            optimized_for_streaming = True,
-                                        )
-                                    ]
-                        )
-        return ObjectContainer(objects=[episode])
 
     cmd = "/player/watchLive"
     parms = {"channelid": int(objectID)}
@@ -775,34 +787,7 @@ def playlive(objectID,tablo_server_id, pregenurl = ''):
     if 'relativePlaylistURL' in result['result']:
         video_url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + '/' + result['result']['relativePlaylistURL']
         tplog(' --> playlive video_url: ', video_url)
-        #return HTTPLiveStreamURL(video_url)
-        episode = EpisodeObject(
-                            key=Callback(playlive,objectID=objectID,tablo_server_id=tablo_server_id, pregenurl = video_url),
-                            rating_key=objectID,
-
-                            title='Start Live TV',
-
-                            items=[
-                                    MediaObject(
-                                        parts = [
-                                            PartObject(
-                                                key=HTTPLiveStreamURL(video_url)
-                                            )
-                                        ],
-
-                                        optimized_for_streaming = True,
-                                    )
-                                ]
-                    )
-
-        return episode
-
-    else:
-        return MessageContainer(
-            "Error",
-            result['result']['error']['errorDesc']
-        )
-    #return HTTPLiveStreamURL(url)
+        return video_url
 
 
 '''#########################################
