@@ -681,7 +681,7 @@ def livetv():
             oc.add(getlivetvepisode(channelDict,tablo_server_id))
 
 
-
+    oc.objects.sort(key=lambda obj: obj.absolute_index, reverse=False)
     return oc
 
 '''#########################################
@@ -709,13 +709,13 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
     epshow = ''
     eporder = ''
     epobjectID = 0
-    epchannelDict = channelDict
+
 
     try:
         eptitle = channelDict['title'] + '-' + channelDict['epTitle']
         epsummary = channelDict['description']
         epshow = channelDict['channelNumber'] + ': ' + channelDict['callSign']
-        eporder = channelDict['order']
+        eporder = (int(channelDict['channelNumberMajor'])*100)+ int(channelDict['channelNumberMinor'])
         epobjectID = int(channelDict['objectID'])
     except Exception as e:
         tplog('841',e)
