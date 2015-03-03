@@ -280,7 +280,8 @@ def sync_database_channels(LoadLimit=200):
                 loadchannel = False
 
                 #If the channel ID is not in our local database add it
-
+                if 'CHANNELS' not in Dict['CPES'][tablo_server_id]:
+                    Dict['CPES'][tablo_server_id]['CHANNELS'] = {}
                 if chid not in Dict['CPES'][tablo_server_id]['CHANNELS']:
                     tplog('sync_database_channels - First Load: ', chid)
                     loadchannel = True
