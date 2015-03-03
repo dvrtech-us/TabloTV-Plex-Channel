@@ -20,19 +20,21 @@ SHOW_THUMB = 'no_tv_110x150.jpg'
 PREFIX = '/video/tablo'
 LOG_PREFIX = "***TabloTV2: "
 ASSOCSERVER = 'https://api.tablotv.com/assocserver/getipinfo/'
-VERSION = "2.0"
+VERSION = "2.0.1"
 FOLDERS_COUNT_IN_TITLE = True  # Global VAR used to enable counts on titles
 DEBUG_IT = True
 ONE_DAY_IN_SECONDS = 86400
 UseMeta = True
 
 ''' LOGGING FUNCTION '''
+
+
 def tplog(location, message):
     if DEBUG_IT:
         Log(LOG_PREFIX + str(location) + ': ' + pprint.pformat(message))
 
-############################################
-###########  "Database" FUNCTIONS   ###########
+# ###########################################
+# ##########  "Database" FUNCTIONS   ###########
 ############################################
 
 '''#########################################
@@ -48,86 +50,103 @@ def tplog(location, message):
 
         Notes:
 #########################################'''
+
+
 def build_tablos():
     # build a list of Tablos from the Association Server
     count = 0
-    tplog("Start Build_Tablos" ,'')
+    tplog("Start Build_Tablos", '')
     try:
-        if 'OVERRIDE_IP' in Prefs:
-            if Prefs['OVERRIDE_IP'] != '' and Prefs['OVERRIDE_IP'] is not None:
-                tablos = {}
-                tablos['MANUAL'] = {}
-                tablos['MANUAL']['PRIVATE_IP'] = Prefs['OVERRIDE_IP']
-                tablos['MANUAL']['PRIVATE_PORT'] = Prefs['OVERRIDE_PORT']
-                tablos['MANUAL']['PUBLIC_IP'] = Prefs['OVERRIDE_IP']
-                tablos['MANUAL']['PUBLIC_PORT'] = Prefs['OVERRIDE_PORT']
-                Dict['tablos'] = tablos
-                return True
-    except Exception as e:
-        tplog("Error Checking Override" ,e)
+        if 'SelectedTablo' not in Dict:
+            Dict['SelectedTablo'] = 'ALL'
+        if 'CPECOUNT' not in Dict:
+            Dict['CPECOUNT'] = 0
 
+    except:
+        tplog('failed to set selected','')
+
+
+
+    if Prefs['OVERRIDE_IP'] != '' and Prefs['OVERRIDE_IP'] is not None:
+        tplog('override',Prefs['OVERRIDE_IP'])
+        tablos = {'MANUAL': {}}
+        tablos['MANUAL']['PRIVATE_IP'] = Prefs['OVERRIDE_IP']
+        tablos['MANUAL']['PRIVATE_PORT'] = Prefs['OVERRIDE_PORT']
+        tablos['MANUAL']['PUBLIC_IP'] = Prefs['OVERRIDE_IP']
+        tablos['MANUAL']['PUBLIC_PORT'] = Prefs['OVERRIDE_PORT']
+        Dict['tablos'] = tablos
+        return True
+    #Prevent hiting the Association Server every time find out how long its been since the last check
+    datetime = Datetime.Now()
+    if 'LASTCHECK'  in Dict:
+        timesincelastcheck = int(( datetime.utcnow() - Dict['LASTCHECK']).total_seconds())
+        if timesincelastcheck < 3600 and timesincelastcheck != 0:
+            tplog('build_tablos - Timesincelastcheck',str(timesincelastcheck) )
+            return True
     try:
         cpes = JSON.ObjectFromURL(ASSOCSERVER)
 
         if 'success' in cpes:
             tablos = {}
             for cpe in cpes['cpes']:
-                count += 1
-                datetime = Datetime.Now()
-                last_seen_with_tz = Datetime.ParseDate(cpe['last_seen'])
-                tablo_server_id = cpe['serverid']
-                last_seen_no_tz = last_seen_with_tz.replace(tzinfo=None)
-                seconds_since_last_seen = int(( datetime.utcnow() - last_seen_no_tz).total_seconds())
+                if Dict['SelectedTablo'] == 'ALL' or Dict['SelectedTablo'] == cpe['serverid']:
+                    count += 1
 
-                if DEBUG_IT:
-                    tplog('Processing Tablo',cpe)
-                    tplog('--Last Seen', seconds_since_last_seen)
-                if seconds_since_last_seen < 86400:
-                    tablos[tablo_server_id] = {}
+                    last_seen_with_tz = Datetime.ParseDate(cpe['last_seen'])
+                    tablo_server_id = cpe['serverid']
+                    last_seen_no_tz = last_seen_with_tz.replace(tzinfo=None)
+                    seconds_since_last_seen = int(( datetime.utcnow() - last_seen_no_tz).total_seconds())
 
-                    #Reload the already saved recordings if we already have this tablo
-                    #First See if we already have a CPES array
-                    if 'CPES' in Dict:
-                        #now see if we have this tablo
-                        tplog('Found CPES','here')
-                        if tablo_server_id in Dict['CPES']:
-                            tplog('Found CPE ',tablo_server_id)
-                            if 'CHANNELS' not in Dict['CPES'][tablo_server_id]:
-                                tplog('No CHANNELS key Found for CPE ',tablo_server_id)
+                    if DEBUG_IT:
+                        tplog('Processing Tablo', cpe)
+                        tplog('--Last Seen', seconds_since_last_seen)
+                    if seconds_since_last_seen < 86400:
+                        tablos[tablo_server_id] = {}
+
+                        #Reload the already saved recordings if we already have this tablo
+                        #First See if we already have a CPES array
+                        if 'CPES' in Dict:
+                            #now see if we have this tablo
+                            tplog('Found CPES', 'here')
+                            if tablo_server_id in Dict['CPES']:
+                                tplog('Found CPE ', tablo_server_id)
+                                if 'CHANNELS' not in Dict['CPES'][tablo_server_id]:
+                                    tplog('No CHANNELS key Found for CPE ', tablo_server_id)
+                                    tablos[tablo_server_id]['CHANNELS'] = {}
+                                else:
+                                    tplog('CHANNELS key Found for CPE ', tablo_server_id)
+                                    tablos[tablo_server_id]['CHANNELS'] = Dict['CPES'][tablo_server_id]['CHANNELS']
+                                if 'RECORDINGS' not in Dict['CPES'][tablo_server_id]:
+                                    tplog('No RECORDINGS key Found for CPE ', tablo_server_id)
+                                    tablos[tablo_server_id]['RECORDINGS'] = {}
+                                else:
+                                    tplog('RECORDINGS key Found for CPE ', tablo_server_id)
+                                    tablos[tablo_server_id]['RECORDINGS'] = Dict['CPES'][tablo_server_id]['RECORDINGS']
+                            else:
+                                tplog('Not Found for CPE ', tablo_server_id)
                                 tablos[tablo_server_id]['CHANNELS'] = {}
-                            else:
-                                tplog('CHANNELS key Found for CPE ',tablo_server_id)
-                                tablos[tablo_server_id]['CHANNELS'] = Dict['CPES'][tablo_server_id]['CHANNELS']
-                            if 'RECORDINGS' not in Dict['CPES'][tablo_server_id]:
-                                tplog('No RECORDINGS key Found for CPE ',tablo_server_id)
                                 tablos[tablo_server_id]['RECORDINGS'] = {}
-                            else:
-                                tplog('RECORDINGS key Found for CPE ',tablo_server_id)
-                                tablos[tablo_server_id]['RECORDINGS'] = Dict['CPES'][tablo_server_id]['RECORDINGS']
-                        else:
-                            tplog('Not Found for CPE ',tablo_server_id)
-                            tablos[tablo_server_id]['CHANNELS'] = {}
-                            tablos[tablo_server_id]['RECORDINGS'] = {}
-                    tablos[tablo_server_id]['NAME'] = cpe['host']
-                    tablos[tablo_server_id]['PUBLIC_IP'] = str(cpe['public_ip'])
-                    tablos[tablo_server_id]['PRIVATE_IP'] = str(cpe['private_ip'])
-                    tablos[tablo_server_id]['PRIVATE_PORT'] = '18080'
-                    tablos[tablo_server_id]['PRIVATE_ROKUPORT'] = '18080'
-                    tablos[tablo_server_id]['SERVER_ID'] = tablo_server_id
+                        tablos[tablo_server_id]['NAME'] = cpe['host']
+                        tablos[tablo_server_id]['PUBLIC_IP'] = str(cpe['public_ip'])
+                        tablos[tablo_server_id]['PRIVATE_IP'] = str(cpe['private_ip'])
+                        tablos[tablo_server_id]['PRIVATE_PORT'] = '18080'
+                        tablos[tablo_server_id]['PRIVATE_ROKUPORT'] = '18080'
+                        tablos[tablo_server_id]['SERVER_ID'] = tablo_server_id
             Dict['CPES'] = tablos
-
+            Dict['CPECOUNT'] = count
+            #Set last time on successful load
+            Dict['LASTCHECK'] = datetime.utcnow()
             if DEBUG_IT:
-                tplog('created cpes for',tablos)
+                tplog('created cpes for', tablos)
             return True
         else:
             return False
     except Exception as e:
-        tplog("Error Contacting Association Server" ,e)
-        if 'tablos' in Dict:
+        tplog("Error Contacting Association Server", e)
+        if 'CPES' in Dict:
             return True
         else:
             return False
-
 
 
 '''#########################################
@@ -143,55 +162,65 @@ def build_tablos():
 
         Notes:
 #########################################'''
-def sync_database_recordings(LoadLimit = 50):
+
+
+def sync_database_recordings(LoadLimit=5000):
+    if 'DATABASESYNCRUNNING' in Dict:
+        if Dict['DATABASESYNCRUNNING'] == True:
+            tplog('DATABASESYNCRUNNING Sync already running', 'sync already running')
+            return 0
+    Dict['DATABASESYNCRUNNING'] = True
     if DEBUG_IT:
-            tplog('Start sync_database  ',LoadLimit)
+        tplog('Start sync_database  ', LoadLimit)
     #Loop through Each Tablo
     count = 0
     if DEBUG_IT:
-        tplog('-- sync_database CPES ','')
+        tplog('-- sync_database CPES ', '')
     #Loop Through each tablo and download the list of recordings
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
         if DEBUG_IT:
-            tplog('sync_database cpe found ',cpe['NAME'])
+            tplog('sync_database cpe found ', cpe['NAME'])
         #Get the list of recordings
         try:
-            cpe_recording_list = JSON.ObjectFromURL('http://' + cpe['PRIVATE_IP'] + ':'+ cpe['PRIVATE_PORT'] +'/plex/rec_ids', values=None, headers={}, cacheTime=60)
+            cpe_recording_list = JSON.ObjectFromURL(
+                'http://' + cpe['PRIVATE_IP'] + ':' + cpe['PRIVATE_PORT'] + '/plex/rec_ids', values=None, headers={},
+                cacheTime=60)
         except Exception as e:
-            tplog("Error Reading CPE" ,e)
-
+            tplog("Error Reading CPE", e)
+            Dict['DATABASESYNCRUNNING'] = False
 
         if DEBUG_IT:
-            tplog('sync_database Recordings found ','')
+            tplog('sync_database Recordings found ', '')
 
 
         #Loop Through the current tablo and add recording information to the database
-        cpe_recording_list['ids'].sort();
+        cpe_recording_list['ids'].sort()
         for recordingIDint in cpe_recording_list['ids']:
             recordingID = str(recordingIDint)
-            if count < LoadLimit:
-                a = True
-                #tplog('sync_database Recording ID ',recordingID)
-            else:
-                tplog('sync_database Recording ID ignored due to load limit',recordingID)
+            if count > LoadLimit:
+                tplog('sync_database Recording ID ignored due to load limit', recordingID)
                 return recordingID
             if not recordingID in Dict['CPES'][tablo_server_id]['RECORDINGS'] and count < LoadLimit:
 
                 if count < LoadLimit:
                     count += 1
                     try:
-                        cpe_recording = JSON.ObjectFromURL('http://' + cpe['PRIVATE_IP'] + ':'+ cpe['PRIVATE_PORT'] +'/pvr/' + recordingID +'/meta.txt', values=None, headers={}, cacheTime=60)
-                        Dict['CPES'][tablo_server_id]['RECORDINGS'][recordingID] = getEpisodeDict(cpe_recording,recordingID)
+                        cpe_recording = JSON.ObjectFromURL('http://' + cpe['PRIVATE_IP'] + ':' + cpe[
+                            'PRIVATE_PORT'] + '/pvr/' + recordingID + '/meta.txt', values=None, headers={},
+                                                           cacheTime=60)
+                        Dict['CPES'][tablo_server_id]['RECORDINGS'][recordingID] = getEpisodeDict(cpe_recording,
+                                                                                                  recordingID)
                         if DEBUG_IT:
-                            tplog('sync_database Recording first load ',recordingID)
+                            tplog('sync_database Recording first load ', recordingID)
                             #tplog('sync_database Recording found ',Dict['CPES'][tablo_server_id]['RECORDINGS'][recordingID])
                     except Exception as e:
-                        tplog("sync_database Error Loading Meta" ,e)
+                        tplog("sync_database Error Loading Meta", e)
+
                 else:
-                    tplog('sync_database hit load limit ',count)
+                    tplog('sync_database hit load limit ', count)
 
         #Remove Recordings that have been Deleted from the Tablo
-        tplog("sync_database Checking for Deletions" ,"")
+        tplog("sync_database Checking for Deletions", "")
         Temp = Dict['CPES'][tablo_server_id]['RECORDINGS'].copy()
         try:
             #Loop Through each recording and delete records from the database that are no longer on the Tablo
@@ -200,10 +229,13 @@ def sync_database_recordings(LoadLimit = 50):
                 int_existing_recording_id = int(existing_recording_id)
                 if not int(existing_recording_id) in cpe_recording_list['ids']:
                     del Dict['CPES'][tablo_server_id]['RECORDINGS'][existing_recording_id]
-                    tplog('sync_database Deleting' , int_existing_recording_id)
+                    tplog('sync_database Deleting', int_existing_recording_id)
         except Exception as e:
-            tplog("sync_database Error Deleting" ,e)
+            tplog("sync_database Error Deleting", e)
+            Dict['DATABASESYNCRUNNING'] = False
+    Dict['DATABASESYNCRUNNING'] = False
     return 1
+
 
 '''#########################################
         Name: sync_database_channels()
@@ -218,18 +250,24 @@ def sync_database_recordings(LoadLimit = 50):
 
         Notes:
 #########################################'''
-def sync_database_channels(LoadLimit = 200):
+
+
+def sync_database_channels(LoadLimit=200):
+    if 'CHANNELSYNCRUNNING' in Dict:
+        if Dict['CHANNELSYNCRUNNING'] == True:
+            tplog('Channel Sync already running', 'sync already running')
+            return 0
+    Dict['CHANNELSYNCRUNNING'] = True
     if DEBUG_IT:
-            tplog('Start sync_database_channels  ',LoadLimit)
+        tplog('Start sync_database_channels  ', LoadLimit)
 
     #Loop through Each Tablo and download channel information
-    count = 0
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
         #Load Channel Information
         try:
-            tplog("sync_database_channels CPE " ,tablo_server_id)
+            tplog("sync_database_channels CPE ", tablo_server_id)
             i = 0  # used for storing channels in correct order as reported by TabloTV ch_id
-            url = 'http://' + cpe['PRIVATE_IP'] + ':'+ cpe['PRIVATE_PORT'] + '/plex/ch_ids'
+            url = 'http://' + cpe['PRIVATE_IP'] + ':' + cpe['PRIVATE_PORT'] + '/plex/ch_ids'
             cpe_channel_list = JSON.ObjectFromURL(url, values=None, headers={}, cacheTime=60)
 
             for chid in cpe_channel_list['ids']:
@@ -242,16 +280,17 @@ def sync_database_channels(LoadLimit = 200):
                     tplog('sync_database_channels - First Load: ', chid)
                     loadchannel = True
                 else:
-                #If it is already in the database check if the program has ended, if it is close, re-sync the data
+                    #If it is already in the database check if the program has ended, if it is close, re-sync the data
                     datetime = Datetime.Now()
                     startdatetimetz = Datetime.ParseDate(Dict['CPES'][tablo_server_id]['CHANNELS'][chid]['airDate'])
                     startdatetime = startdatetimetz.replace(tzinfo=None)
                     secondsintoprogram = int(( datetime.utcnow() - startdatetime).total_seconds())
                     # set the duration to within a minute of it ending
                     durationinseconds = int(Dict['CPES'][tablo_server_id]['CHANNELS'][chid]['duration'] / 1000)
-                    tplog('Comparing ','secondsintoprogram' + str(secondsintoprogram)+ 'durationinseconds' + str(durationinseconds)  )
+                    tplog('Comparing ',
+                          'secondsintoprogram' + str(secondsintoprogram) + 'durationinseconds' + str(durationinseconds))
                     #if the program is ending or has ended reload
-                    if secondsintoprogram > (durationinseconds- 60):
+                    if secondsintoprogram > (durationinseconds - 60):
                         tplog('sync_database_channels - ReLoad: ', chid)
                         loadchannel = True
 
@@ -262,7 +301,9 @@ def sync_database_channels(LoadLimit = 200):
                     Dict['CPES'][tablo_server_id]['CHANNELS'][chid] = channelDict
 
         except Exception as e:
-            tplog("Error Reading CPE Channels" ,e)
+            tplog("Error Reading CPE Channels", e)
+            Dict['CHANNELSYNCRUNNING'] = False
+    Dict['CHANNELSYNCRUNNING'] = False
 
 '''#########################################
         Name: get_channel_dict()
@@ -277,6 +318,8 @@ def sync_database_channels(LoadLimit = 200):
 
         Notes:
 #########################################'''
+
+
 def get_channel_dict(tablo_server_id, intchid):
     chid = str(intchid)
     channelDict = {}
@@ -285,8 +328,10 @@ def get_channel_dict(tablo_server_id, intchid):
 
     #download the channel information from the tablo
     try:
-        channelInfo = JSON.ObjectFromURL('http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+  Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/plex/ch_info?id=' + str(chid), values=None,
-                                          headers={}, cacheTime=60)
+        channelInfo = JSON.ObjectFromURL(
+            'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+                'PRIVATE_PORT'] + '/plex/ch_info?id=' + str(chid), values=None,
+            headers={}, cacheTime=60)
 
     except Exception as e:
         tplog('getChannelDict', "Call to CGI ch_info failed!")
@@ -335,15 +380,15 @@ def get_channel_dict(tablo_server_id, intchid):
         # set default channelNumber AFTER trying to get the number major and number minor
         channelDict['channelNumber'] = str(chinfo['channelNumberMajor']) + '-' + str(chinfo['channelNumberMinor'])
 
-
-
         if chinfo['dataAvailable'] == 1:
 
             try:
-                channelEPGInfo = JSON.ObjectFromURL('http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+  Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/plex/ch_epg?id=' + str(chid),
-                                                    values=None, headers={}, cacheTime=60)
+                channelEPGInfo = JSON.ObjectFromURL(
+                    'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+                        'PRIVATE_PORT'] + '/plex/ch_epg?id=' + str(chid),
+                    values=None, headers={}, cacheTime=60)
             except Exception as e:
-
+                tplog('channelinfo - JSON Failure',e)
                 return channelDict
 
             if 'meta' in channelEPGInfo:
@@ -359,7 +404,7 @@ def get_channel_dict(tablo_server_id, intchid):
                 guideInfo = epgInfo['guideSportEvent']
                 channelDict['type'] = 'Sport'
                 if 'guideSportOrganization' in epgInfo:
-                    Log(LOG_PREFIX + 'Guide Sport Organization')
+                    tplog(LOG_PREFIX, 'Guide Sport Organization')
                     guideSportOrg = epgInfo['guideSportOrganization']
                     if 'imageJson' in guideSportOrg:
                         imageInfo = guideSportOrg['imageJson']['images']
@@ -368,7 +413,7 @@ def get_channel_dict(tablo_server_id, intchid):
                 guideInfo = epgInfo['guideEpisode']
                 channelDict['type'] = 'Episode'
                 if 'guideSeries' in epgInfo:
-                    Log(LOG_PREFIX + 'Series')
+                    tplog(LOG_PREFIX, 'Series')
                     guideDetailInfo = epgInfo['guideSeries']
                     channelDict['type'] = 'Series'
                     if 'imageJson' in guideDetailInfo:
@@ -384,7 +429,7 @@ def get_channel_dict(tablo_server_id, intchid):
                     if 'imageJson' in guideDetailInfo:
                         imageInfo = guideDetailInfo['imageJson']['images']
             else:
-                plexlog(LOG_PREFIX, 'UNHANDLED TYPE!!! not sport or movie or episode')
+                tplog(LOG_PREFIX, 'UNHANDLED TYPE!!! not sport or movie or episode')
                 return channelDict
 
             # set images outside of series logic to ensure defaults are set
@@ -464,7 +509,11 @@ def get_channel_dict(tablo_server_id, intchid):
                     channelDict['airDate'] = guideJsonInfo['airDate']
                 if 'duration' in guideJsonInfo:
                     channelDict['duration'] = int(guideJsonInfo['duration']) * 1000
-
+    try:
+        if Dict['CPECOUNT'] > 1:
+            channelDict['callSign'] = channelDict['callSign'] + ' on ' + Dict['CPES'][tablo_server_id]['NAME']
+    except Exception as e:
+        tplog('getchannelDict - add device name',e)
     return channelDict
 
 
@@ -479,84 +528,135 @@ def get_channel_dict(tablo_server_id, intchid):
 
     Notes:
 #########################################'''
-def getEpisodeDict(recordingobj,recordingID):
 
+
+def getEpisodeDict(recordingobj, recordingID):
     recordingDict = {}
     recordingtype = 'Unknown'
     recordinginfo = recordingobj
 
     #if we have meta data, load the data into our storage dict
     if 'meta' in recordingobj or UseMeta:
-
+        #prebuild the recordingdict data
         recordingDict['recordingID'] = recordingID
         #use image url to retrieve show images.  Snap.jpg isn't always available
         recordingDict['seriesthumb'] = recordingID
         recordingDict['backgroundart'] = recordingID
+
+        recordingDict['seriesId'] = ''
+        recordingDict['showname'] = ''
+        recordingDict['showid'] = ''
+        recordingDict['showtotalepisodes'] = ''
+        recordingDict['seriesdesc'] = ''
+        recordingDict['seriesthumb'] = ''
+        recordingDict['episodenum'] = ''
+        recordingDict['showname'] = ''
+        recordingDict['title'] = ''
         recordingDict['summary'] = 'No Summary'
-        root= 'other'
+
+        root = 'other'
         '''#### CAPTURE EPISODE ONLY INFO ####### '''
         if 'recEpisode' in recordinginfo:
             recordingtype = 'TvShow'
-            root= 'recEpisode'
-            recordingDict['seriesId'] = recordinginfo['recSeries']['jsonFromTribune']['seriesId']
-            recordingDict['seriesdesc'] = ''
-            if 'shortDescription' in recordinginfo['recSeries']['jsonFromTribune']:
-                recordingDict['seriesdesc'] = recordinginfo['recSeries']['jsonFromTribune']['shortDescription']
-            if 'imageJson' in recordinginfo['recSeries']:
-                for seriesimage in recordinginfo['recSeries']['imageJson']['images']:
-                    #Log(LOG_PREFIX + 'imageType = %s', seriesimage['imageType'])
-                    if seriesimage['imageType'] == 'iconic_4x3_large':
-                        recordingDict['backgroundart'] = str(seriesimage['imageID'])
-                    if seriesimage['imageType'] == 'series_3x4_small':
-                        recordingDict['seriesthumb'] =  str(seriesimage['imageID'])
-            if 'totalEpisodes' in recordinginfo['recSeries']['jsonFromTribune']:
-                recordingDict['showtotalepisodes'] = int(recordinginfo['recSeries']['jsonFromTribune']['totalEpisodes'])
-            if 'title' in recordinginfo[root]['jsonFromTribune']['program']:
-                recordingDict['showname'] = recordinginfo[root]['jsonFromTribune']['program']['title']
-            if 'seriesId' in recordinginfo['recSeries']['jsonFromTribune']:
-                recordingDict['showid'] = recordinginfo['recSeries']['jsonFromTribune']['seriesId']
-            if 'seasonNumber' in recordinginfo[root]['jsonForClient']:
-                recordingDict['seasonnum'] = int(recordinginfo[root]['jsonForClient']['seasonNumber'])
-            if 'episodeNumber' in recordinginfo[root]['jsonForClient']:
-                recordingDict['episodenum'] = int(recordinginfo[root]['jsonForClient']['episodeNumber'])
-
+            root = 'recEpisode'
+            try:
+                recordingDict['seriesId'] = recordinginfo['recSeries']['jsonFromTribune']['seriesId']
+            except Exception as e:
+                tplog('getEpisodeDict - recEpisode', e)
+            try:
+                if 'shortDescription' in recordinginfo['recSeries']['jsonFromTribune']:
+                    recordingDict['seriesdesc'] = recordinginfo['recSeries']['jsonFromTribune']['shortDescription']
+            except Exception as e:
+                tplog('getEpisodeDict - shortDescription', e)
+            try:
+                if 'imageJson' in recordinginfo['recSeries']:
+                    for seriesimage in recordinginfo['recSeries']['imageJson']['images']:
+                        #Log(LOG_PREFIX + 'imageType = %s', seriesimage['imageType'])
+                        if seriesimage['imageType'] == 'iconic_4x3_large':
+                            recordingDict['backgroundart'] = str(seriesimage['imageID'])
+                        if seriesimage['imageType'] == 'series_3x4_small':
+                            recordingDict['seriesthumb'] = str(seriesimage['imageID'])
+            except Exception as e:
+                tplog('getEpisodeDict - imageJson', e)
+            try:
+                if 'totalEpisodes' in recordinginfo['recSeries']['jsonFromTribune']:
+                    recordingDict['showtotalepisodes'] = int(
+                        recordinginfo['recSeries']['jsonFromTribune']['totalEpisodes'])
+            except Exception as e:
+                tplog('getEpisodeDict - totalEpisodes', e)
+            try:
+                if 'title' in recordinginfo[root]['jsonFromTribune']['program']:
+                    recordingDict['showname'] = recordinginfo[root]['jsonFromTribune']['program']['title']
+            except Exception as e:
+                tplog('getEpisodeDict - title', e)
+            try:
+                if 'seriesId' in recordinginfo['recSeries']['jsonFromTribune']:
+                    recordingDict['showid'] = recordinginfo['recSeries']['jsonFromTribune']['seriesId']
+            except Exception as e:
+                tplog('getEpisodeDict - seriesId', e)
+            try:
+                if 'seasonNumber' in recordinginfo[root]['jsonForClient']:
+                    recordingDict['seasonnum'] = int(recordinginfo[root]['jsonForClient']['seasonNumber'])
+            except Exception as e:
+                tplog('getEpisodeDict - seasonNumber', e)
+            try:
+                if 'episodeNumber' in recordinginfo[root]['jsonForClient']:
+                    recordingDict['episodenum'] = int(recordinginfo[root]['jsonForClient']['episodeNumber'])
+            except Exception as e:
+                tplog('getEpisodeDict - episodeNumber', e)
         '''#### CAPTURE Movie ONLY INFO ####### '''
-        if 'recMovieAiring' in recordinginfo:
-            recordingtype = 'Movie'
-            root = 'recMovieAiring'
-            if 'plot' in recordinginfo['recMovie']['jsonForClient']:
-                recordingDict['summary'] = recordinginfo['recMovie']['jsonForClient']['plot']
+        try:
+            if 'recMovieAiring' in recordinginfo:
+                recordingtype = 'Movie'
+                root = 'recMovieAiring'
+                if 'plot' in recordinginfo['recMovie']['jsonForClient']:
+                    recordingDict['summary'] = recordinginfo['recMovie']['jsonForClient']['plot']
+        except Exception as e:
+            tplog('getEpisodeDict - recMovieAiring', e)
         '''#### CAPTURE Sports ONLY INFO ####### '''
-        if 'recSportEvent' in recordinginfo:
-            recordingtype = 'Sports'
-            root = 'recSportEvent'
+        try:
+            if 'recSportEvent' in recordinginfo:
+                recordingtype = 'Sports'
+                root = 'recSportEvent'
+        except Exception as e:
+            tplog('getEpisodeDict - recSportEvent', e)
 
-
-        if 'episodeTitle' in recordinginfo[root]['jsonFromTribune']['program']:
-            recordingDict['title']  = recordinginfo[root]['jsonFromTribune']['program']['episodeTitle']
-        elif 'title' in recordinginfo[root]['jsonFromTribune']['program']:
-            recordingDict['title'] = recordinginfo[root]['jsonFromTribune']['program']['title']
+        try:
+            if 'episodeTitle' in recordinginfo[root]['jsonFromTribune']['program']:
+                recordingDict['title'] = recordinginfo[root]['jsonFromTribune']['program']['episodeTitle']
+            elif 'title' in recordinginfo[root]['jsonFromTribune']['program']:
+                recordingDict['title'] = recordinginfo[root]['jsonFromTribune']['program']['title']
+        except Exception as e:
+            tplog('getEpisodeDict - title', e)
         #Description is not always in the JSON, so test first
-        if 'description' in recordinginfo[root]['jsonForClient']:
-            recordingDict['summary'] = recordinginfo[root]['jsonForClient']['description']
-        elif 'longDescription' in recordinginfo[root]['jsonFromTribune']['program']:
-            recordingDict['summary'] = recordinginfo[root]['jsonFromTribune']['program']['longDescription']
-        elif 'longDescription' in recordinginfo[root]['jsonFromTribune']:
-            recordingDict['summary'] = recordinginfo[root]['jsonFromTribune']['longDescription']
+        try:
+            if 'description' in recordinginfo[root]['jsonForClient']:
+                recordingDict['summary'] = recordinginfo[root]['jsonForClient']['description']
+            elif 'longDescription' in recordinginfo[root]['jsonFromTribune']['program']:
+                recordingDict['summary'] = recordinginfo[root]['jsonFromTribune']['program']['longDescription']
+            elif 'longDescription' in recordinginfo[root]['jsonFromTribune']:
+                recordingDict['summary'] = recordinginfo[root]['jsonFromTribune']['longDescription']
+        except Exception as e:
+            tplog('getEpisodeDict - Description', e)
+        try:
 
-
-        #convert to seconds
-        if 'duration' in recordinginfo[root]['jsonForClient']['video']:
             #convert to seconds
-            recordingDict['duration']  = int(recordinginfo[root]['jsonForClient']['video']['duration']) *1000
-        else:
-            recordingDict['duration'] = 0
-
+            if 'duration' in recordinginfo[root]['jsonForClient']['video']:
+                #convert to seconds
+                recordingDict['duration'] = int(recordinginfo[root]['jsonForClient']['video']['duration']) * 1000
+            else:
+                recordingDict['duration'] = 0
+        except Exception as e:
+            tplog('getEpisodeDict - duration', e)
         recordingDict['video'] = recordinginfo[root]['jsonForClient']['video']
 
         recordingDict['airdate'] = recordinginfo[root]['jsonForClient']['airDate']
         recordingDict['recordingtype'] = recordingtype
-
+    try:
+        if Dict['CPECOUNT'] > 1:
+            recordingDict['title'] = recordingDict['title'] + ' on ' + Dict['CPES'][tablo_server_id]['NAME']
+    except Exception as e:
+        tplog('getchannelDict - add device name',e)
     return recordingDict
 
 
@@ -581,9 +681,14 @@ def Start():
     # HTTP setup
     HTTP.CacheTime = CACHE_1HOUR
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:16.0) Gecko/20100101 Firefox/16.0'
-    build_tablos()
-    sync_database_recordings(100)
-    sync_database_channels(200)
+    try:
+        build_tablos()
+        Thread.Create(sync_database_recordings)
+        Thread.Create(sync_database_channels)
+    except Exception as e:
+        tplog("Error Preloading", e)
+
+
 
 '''#########################################
         Name: MainMenu()
@@ -602,30 +707,32 @@ def Start():
 
 @handler(PREFIX, TITLE, thumb=ICON, art=ART)
 def MainMenu():
-
     build_tablos()
-
+    Thread.Create(sync_database_recordings)
+    Thread.Create(sync_database_channels)
     #Attempt to better handle the first sync of the database by prompting to load all the data
     nomoretosync = sync_database_recordings(50)
 
     if nomoretosync > 1:
         oc = ObjectContainer()
         oc.no_cache = True
-        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(stillsyncing), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
+        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(stillsyncing),
+                               title="Recordings are still syncing please continue to click here until sync finishes Last Recording was " + nomoretosync))
         return oc
 
     oc = ObjectContainer()
     oc.no_cache = True
     oc.add(DirectoryObject(thumb=R('icon_livetv_hd.png'), key=Callback(livetv), title="Live TV"))
-    oc.add(DirectoryObject(thumb=R('icon-Movies.png'),key=Callback(movies), title="Movies"))
-    oc.add(DirectoryObject(thumb=R('icon-TVShow.png'),key=Callback(shows), title="TV Shows"))
-    oc.add(DirectoryObject(thumb=R('icon_sports_hd.png'),key=Callback(sports), title="Sports"))
-    oc.add(DirectoryObject(thumb=R('icon-Recordings.png'),key=Callback(recentrecordings), title="Recent Recordings"))
+    oc.add(DirectoryObject(thumb=R('icon-Movies.png'), key=Callback(movies), title="Movies"))
+    oc.add(DirectoryObject(thumb=R('icon-TVShow.png'), key=Callback(shows), title="TV Shows"))
+    oc.add(DirectoryObject(thumb=R('icon_sports_hd.png'), key=Callback(sports), title="Sports"))
+    oc.add(DirectoryObject(thumb=R('icon-Recordings.png'), key=Callback(recentrecordings), title="Recent Recordings"))
     oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.png'),
-                               key=Callback(scheduled, title="Scheduled Recordings"),
-                               title="Scheduled Recordings"))
+                           key=Callback(scheduled, title="Scheduled Recordings"),
+                           title="Scheduled Recordings"))
     oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(Help, title="Help"), title="Help"))
     return oc
+
 
 '''#########################################
         Name: stillsyncing()
@@ -640,15 +747,19 @@ def MainMenu():
 
         Notes:
 #########################################'''
+
+
 def stillsyncing():
     nomoretosync = sync_database_recordings(50)
 
     if nomoretosync > 1:
         oc = ObjectContainer()
         oc.no_cache = True
-        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(MainMenu), title="Recordings are still syncing please continue to click here until sync finishes Last Recording was "+ nomoretosync))
+        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(MainMenu),
+                               title="Recordings are still syncing please continue to click here until sync finishes Last Recording was " + nomoretosync))
         return oc
     return MainMenu()
+
 
 '''#########################################
         Name: livetv()
@@ -663,10 +774,12 @@ def stillsyncing():
 
         Notes:
 #########################################'''
+
+
 @route(PREFIX + '/livetv', allow_sync=True)
 def livetv():
     #Sync the Channels from the Tablo
-    #sync_database_channels()
+    sync_database_channels()
 
     oc = ObjectContainer()
     oc.no_cache = True
@@ -674,15 +787,15 @@ def livetv():
 
     #Add the channels from all Tablos
     recordings = {}
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
-        for id,channelDict in cpe['CHANNELS'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
+        for id, channelDict in cpe['CHANNELS'].iteritems():
             #tplog('recordingDict',recordingDict)
-            tplog('livetv id',channelDict)
-            oc.add(getlivetvepisode(channelDict,tablo_server_id))
-
+            tplog('livetv id', channelDict)
+            oc.add(getlivetvepisode(channelDict, tablo_server_id))
 
     oc.objects.sort(key=lambda obj: obj.absolute_index, reverse=False)
     return oc
+
 
 '''#########################################
         Name: getlivetvepisode()
@@ -697,68 +810,72 @@ def livetv():
 
         Notes:
 #########################################'''
+
+
 @route(PREFIX + '/getlivetvepisode')
-def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
+def getlivetvepisode(channelDict, tablo_server_id, ocflag=False):
     if ocflag:
         channelDict = get_channel_dict(tablo_server_id, channelDict)
         channelDict['order'] = 1
-        url = playlive(channelDict['objectID'],tablo_server_id)
-    tplog('getliveepisode',channelDict)
+        url = playlive(channelDict['objectID'], tablo_server_id)
+    tplog('getliveepisode', channelDict)
     eptitle = ''
     epsummary = ''
     epshow = ''
     eporder = ''
     epobjectID = 0
 
-
     try:
         eptitle = channelDict['title'] + '-' + channelDict['epTitle']
         epsummary = channelDict['description']
         epshow = channelDict['channelNumber'] + ': ' + channelDict['callSign']
-        eporder = (int(channelDict['channelNumberMajor'])*100)+ int(channelDict['channelNumberMinor'])
+        eporder = (int(channelDict['channelNumberMajor']) * 100) + int(channelDict['channelNumberMinor'])
         epobjectID = int(channelDict['objectID'])
     except Exception as e:
-        tplog('841',e)
+        tplog('841', e)
     episode = EpisodeObject(
 
-                    key=Callback(getlivetvepisode, channelDict=epobjectID,tablo_server_id=tablo_server_id,ocflag = True),
-                    rating_key=epobjectID,
-                    show=epshow,
-                    title=eptitle,
-                    summary=epsummary,
-                    absolute_index=eporder,  # season = airingData['seasonNumber'],
-                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
-                    source_title='TabloTV'
+        key=Callback(getlivetvepisode, channelDict=epobjectID, tablo_server_id=tablo_server_id, ocflag=True),
+        rating_key=epobjectID,
+        show=epshow,
+        title=eptitle,
+        summary=epsummary,
+        absolute_index=eporder,  # season = airingData['seasonNumber'],
+        thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'], tablo_server_id),
+                                                 fallback=NOTV_ICON),
+        source_title='TabloTV'
 
 
-                )
+    )
     if ocflag:
         episode = EpisodeObject(
 
-                    key=Callback(getlivetvepisode, channelDict=epobjectID,tablo_server_id=tablo_server_id,ocflag = True),
-                    rating_key=epobjectID,
-                    show=epshow,
-                    title=eptitle,
-                    summary=epsummary,
-                    absolute_index=eporder,  # season = airingData['seasonNumber'],
-                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'],tablo_server_id), fallback=NOTV_ICON),
-                    source_title='TabloTV',
-                    items=[
-                                    MediaObject(
-                                        parts = [
-                                            PartObject(
-                                                key=HTTPLiveStreamURL(url)
+            key=Callback(getlivetvepisode, channelDict=epobjectID, tablo_server_id=tablo_server_id, ocflag=True),
+            rating_key=epobjectID,
+            show=epshow,
+            title=eptitle,
+            summary=epsummary,
+            absolute_index=eporder,  # season = airingData['seasonNumber'],
+            thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(channelDict['seriesThumb'], tablo_server_id),
+                                                     fallback=NOTV_ICON),
+            source_title='TabloTV',
+            items=[
+                MediaObject(
+                    parts=[
+                        PartObject(
+                            key=HTTPLiveStreamURL(url)
 
-                                            )
-                                        ],
+                        )
+                    ],
 
-                                        optimized_for_streaming = True,
-                                    )
-                                ]
+                    optimized_for_streaming=True,
+                    )
+            ]
 
-                )
+        )
         return ObjectContainer(objects=[episode])
     return episode
+
 
 '''#########################################
         Name: playlive()
@@ -774,21 +891,23 @@ def getlivetvepisode(channelDict, tablo_server_id, ocflag = False):
         Notes:
 #########################################'''
 
+
 @route(PREFIX + '/playlive')
-def playlive(objectID,tablo_server_id):
-    tplog(' --> playlive  is Called',objectID)
-
-
+def playlive(objectID, tablo_server_id):
+    tplog(' --> playlive  is Called', objectID)
 
     cmd = "/player/watchLive"
     parms = {"channelid": int(objectID)}
-    result = TabloAPI(tablo_server_id,cmd,parms)
+    result = TabloAPI(tablo_server_id, cmd, parms)
     tplog(' --> playlive result: ', result)
     if 'relativePlaylistURL' in result['result']:
-        video_url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + '/' + result['result']['relativePlaylistURL']
+        video_url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + '/' + result['result'][
+            'relativePlaylistURL']
         tplog(' --> playlive video_url: ', video_url)
         return video_url
-
+    elif 'error' in result['result']:
+        tplog(' --> playlive error: ','Returning error video')
+        return 'http://c5676e956e00a92c0029-149333bb05f970c39fc9612992dd8b45.r89.cf1.rackcdn.com/No_lock.mp4'
 
 '''#########################################
         Name: recentrecordings()
@@ -807,29 +926,27 @@ def playlive(objectID,tablo_server_id):
 
 @route(PREFIX + '/recentrecordings', allow_sync=True)
 def recentrecordings():
-    sync_database_recordings()
-
+    Thread.Create(sync_database_recordings)
     oc = ObjectContainer()
     oc2 = ObjectContainer()
     oc.title1 = 'Recent Recordings'
-    recordings = {}
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
-        for id,recordingDict in cpe['RECORDINGS'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
+        for id, recordingDict in cpe['RECORDINGS'].iteritems():
             #tplog('recordingDict',recordingDict)
-            tplog('id',id)
+            tplog('id', id)
             if recordingDict['recordingtype'] == 'TvShow':
-                oc2.add(getepisodeasmovie(recordingDict,tablo_server_id))
+                oc2.add(getepisodeasmovie(recordingDict, tablo_server_id))
             if recordingDict['recordingtype'] == 'Sports':
-                oc2.add(getmovie(recordingDict,tablo_server_id))
+                oc2.add(getmovie(recordingDict, tablo_server_id))
             if recordingDict['recordingtype'] == 'Movie':
-                oc2.add(getmovie(recordingDict,tablo_server_id))
+                oc2.add(getmovie(recordingDict, tablo_server_id))
 
     # Re-sort the records so that the latest recorded episodes are at the top of the list
     oc2.objects.sort(key=lambda obj: obj.originally_available_at, reverse=True)
     count = 0
     for obj in oc2.objects:
         count += 1
-        if count <201:
+        if count < 201:
             oc.add(obj)
 
     return oc
@@ -857,8 +974,8 @@ def shows():
     oc = ObjectContainer()
     oc.title1 = 'Shows'
     recordings = {}
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
-        for id,recordingDict in cpe['RECORDINGS'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
+        for id, recordingDict in cpe['RECORDINGS'].iteritems():
             #tplog('recordingDict',recordingDict)
 
             if recordingDict['recordingtype'] == 'TvShow':
@@ -869,11 +986,12 @@ def shows():
                     oc.add(TVShowObject(
                         rating_key=seriesId,
                         art=recordingDict['backgroundart'],
-                        key=Callback(seasons, title=recordingDict['showname'],  seriesid=seriesId),
+                        key=Callback(seasons, title=recordingDict['showname'], seriesid=seriesId),
                         title=recordingDict['showname'],
                         summary=recordingDict['seriesdesc'],
                         duration=recordingDict['duration'],
-                        thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(recordingDict['seriesthumb'],tablo_server_id), fallback=NOTV_ICON),
+                        thumb=Resource.ContentsOfURLWithFallback(
+                            url=getAssetImageURL(recordingDict['seriesthumb'], tablo_server_id), fallback=NOTV_ICON),
 
                         originally_available_at=Datetime.ParseDate(recordingDict['airdate'])
                     ))
@@ -882,6 +1000,8 @@ def shows():
     oc.objects.sort(key=lambda obj: obj.title, reverse=False)
 
     return oc
+
+
 '''#########################################
         Name: Seasons()
 
@@ -906,8 +1026,8 @@ def seasons(title, seriesid):
     oc = ObjectContainer()
     oc.title1 = 'Seasons'
 
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
-        for id,recordingDict in cpe['RECORDINGS'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
+        for id, recordingDict in cpe['RECORDINGS'].iteritems():
             if recordingDict['seriesId'] == seriesid:
                 season = recordingDict['seasonnum']
                 if not season in seasons:
@@ -915,18 +1035,22 @@ def seasons(title, seriesid):
                     countseason += 1
                     lastseason = season
                     oc.add(SeasonObject(
-                            art=recordingDict['backgroundart'],
-                            index=recordingDict['seasonnum'],
-                            rating_key=str(seriesid) + 'S' + str(recordingDict['seasonnum']),
-                            key=Callback(episodes, title=recordingDict['showname'], seriesid=seriesid, seasonnum=recordingDict['seasonnum']),
-                            title='Season ' + str(recordingDict['seasonnum']),
-                            thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(recordingDict['seriesthumb'],tablo_server_id),fallback=NOTV_ICON))
+                        art=recordingDict['backgroundart'],
+                        index=recordingDict['seasonnum'],
+                        rating_key=str(seriesid) + 'S' + str(recordingDict['seasonnum']),
+                        key=Callback(episodes, title=recordingDict['showname'], seriesid=seriesid,
+                                     seasonnum=recordingDict['seasonnum']),
+                        title='Season ' + str(recordingDict['seasonnum']),
+                        thumb=Resource.ContentsOfURLWithFallback(
+                            url=getAssetImageURL(recordingDict['seriesthumb'], tablo_server_id), fallback=NOTV_ICON))
                     )
 
     # Re-sort the records so that they are ordered by Season number
     oc.objects.sort(key=lambda obj: obj.index, reverse=True)
-
+    if countseason == 1:
+        return episodes(recordingDict['showname'], seriesid=seriesid, seasonnum=lastseason)
     return oc
+
 
 '''#########################################
         Name: Episodes()
@@ -944,24 +1068,25 @@ def seasons(title, seriesid):
 
 
 @route(PREFIX + '/Episodes', allow_sync=True)
-def episodes(title, seriesid,seasonnum):
+def episodes(title, seriesid, seasonnum):
     tplog('====checking seriesid', seriesid)
     tplog('====checking seasonnum', seasonnum)
     oc = ObjectContainer()
     oc.title1 = 'Episodes'
     recordings = {}
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
-        for id,recordingDict in cpe['RECORDINGS'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
+        for id, recordingDict in cpe['RECORDINGS'].iteritems():
             tplog('====checking ', recordingDict['seriesId'])
 
             if str(recordingDict['seriesId']) == str(seriesid) and str(recordingDict['seasonnum']) == str(seasonnum):
                 tplog('====added ', seriesid)
-                oc.add(getepisode(recordingDict,tablo_server_id))
+                oc.add(getepisode(recordingDict, tablo_server_id))
 
     # Re-sort the records so that the latest recorded episodes are at the top of the list
     oc.objects.sort(key=lambda obj: obj.originally_available_at, reverse=True)
 
     return oc
+
 
 '''#########################################
         Name: movies()
@@ -985,17 +1110,19 @@ def movies():
     oc = ObjectContainer()
     oc.title1 = 'Movies'
     recordings = {}
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
-        for id,recordingDict in cpe['RECORDINGS'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
+        for id, recordingDict in cpe['RECORDINGS'].iteritems():
             #tplog('recordingDict',recordingDict)
 
             if recordingDict['recordingtype'] == 'Movie':
-                oc.add(getmovie(recordingDict,tablo_server_id))
+                oc.add(getmovie(recordingDict, tablo_server_id))
 
     # Re-sort the records so that the latest recorded episodes are at the top of the list
     oc.objects.sort(key=lambda obj: obj.originally_available_at, reverse=True)
 
     return oc
+
+
 '''#########################################
         Name: Sports()
 
@@ -1017,25 +1144,18 @@ def sports():
 
     oc = ObjectContainer()
     oc.title1 = 'Sports'
-    recordings = {}
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
-        for id,recordingDict in cpe['RECORDINGS'].iteritems():
+
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
+        for id, recordingDict in cpe['RECORDINGS'].iteritems():
             #tplog('recordingDict',recordingDict)
             if recordingDict['recordingtype'] == 'Sports':
-                oc.add(getmovie(recordingDict,tablo_server_id))
+                oc.add(getmovie(recordingDict, tablo_server_id))
 
 
     # Re-sort the records so that the latest recorded episodes are at the top of the list
     oc.objects.sort(key=lambda obj: obj.originally_available_at, reverse=True)
 
     return oc
-
-
-
-
-
-
-
 
 
 '''#########################################
@@ -1051,44 +1171,52 @@ def sports():
 
         Notes:
 #########################################'''
-def getepisode(episodeDict,tablo_server_id, ocflag = False):
+
+
+def getepisode(episodeDict, tablo_server_id, ocflag=False):
     #set values outside of function for better debugging
     epbackground_art = episodeDict['backgroundart']
-    eptitle =episodeDict['title']
-    epseason=episodeDict['seasonnum']
-    epindex=episodeDict['episodenum']
-    epsummary=episodeDict['summary']
-    epduration=episodeDict['duration']
-    epthumb=Resource.ContentsOfURLWithFallback(url=getSnapImageURL(episodeDict,tablo_server_id), fallback=episodeDict['seriesthumb'])
-    eporiginally_available_at=Datetime.ParseDate(episodeDict['airdate'])
-    url = 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+ Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/pvr/' + episodeDict['recordingID'] + '/pl/playlist.m3u8'
-    episode =  EpisodeObject(
-                            key=Callback(getmovie,episodeDict=episodeDict,tablo_server_id=tablo_server_id, ocflag = True),
-                            rating_key=episodeDict['recordingID'],
-                            art=epbackground_art,
-                            title=eptitle,
-                            season=epseason,
-                            index=epindex,
-                            summary=epsummary,
-                            duration=epduration,
-                            thumb=epthumb,
-                            originally_available_at=eporiginally_available_at,
-                            items=[
-                                    MediaObject(
-                                        parts = [
-                                            PartObject(
-                                                key=HTTPLiveStreamURL(url),
-                                                duration=epduration,
-                                            ),
-                                        ],
-                                        duration=epduration,
-                                        optimized_for_streaming = True,
-                                    )
-                                ]
-                    )
+    eptitle = episodeDict['title']
+    epseason = episodeDict['seasonnum']
+    epindex = episodeDict['episodenum']
+    epsummary = episodeDict['summary']
+    epduration = episodeDict['duration']
+    epthumb = Resource.ContentsOfURLWithFallback(url=getSnapImageURL(episodeDict, tablo_server_id),
+                                                 fallback=episodeDict['seriesthumb'])
+    eporiginally_available_at = Datetime.ParseDate(episodeDict['airdate'])
+    url = 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+        'PRIVATE_PORT'] + '/pvr/' + episodeDict['recordingID'] + '/pl/playlist.m3u8'
+    response = HTTP.Request(url, values=None, headers={}, cacheTime=60, encoding=None, errors=None, timeout=30,
+                            immediate=False, sleep=0)
+    tplog('getmovie new response', response)
+    episode = EpisodeObject(
+        key=Callback(getmovie, episodeDict=episodeDict, tablo_server_id=tablo_server_id, ocflag=True),
+        rating_key=episodeDict['recordingID'],
+        art=epbackground_art,
+        title=eptitle,
+        season=epseason,
+        index=epindex,
+        summary=epsummary,
+        duration=epduration,
+        thumb=epthumb,
+        originally_available_at=eporiginally_available_at,
+        items=[
+            MediaObject(
+                parts=[
+                    PartObject(
+                        key=HTTPLiveStreamURL(url),
+                        duration=epduration,
+                        ),
+                    ],
+                duration=epduration,
+                optimized_for_streaming=True,
+                )
+        ]
+    )
     if ocflag:
         return ObjectContainer(objects=[episode])
     return episode
+
 
 '''#########################################
         Name: getmovie()
@@ -1103,40 +1231,65 @@ def getepisode(episodeDict,tablo_server_id, ocflag = False):
 
         Notes:
 #########################################'''
-def getmovie(episodeDict,tablo_server_id, ocflag = False):
+
+
+def getmovie(episodeDict, tablo_server_id, ocflag=False):
     #set values outside of function for better debugging
     epbackground_art = episodeDict['backgroundart']
-    eptitle =episodeDict['title']
-    epsummary=episodeDict['summary']
-    epduration=episodeDict['duration']
-    epthumb=Resource.ContentsOfURLWithFallback(url=getSnapImageURL(episodeDict,tablo_server_id), fallback=episodeDict['seriesthumb'])
-    eporiginally_available_at=Datetime.ParseDate(episodeDict['airdate'])
-    url = 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+ Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/pvr/' + episodeDict['recordingID'] + '/pl/playlist.m3u8'
-    movie =   MovieObject(
-                            key=Callback(getmovie,episodeDict=episodeDict,tablo_server_id=tablo_server_id, ocflag = True),
-                            rating_key=episodeDict['recordingID'],
-                            art=epbackground_art,
-                            title=eptitle,
-                            summary=epsummary,
-                            duration=epduration,
-                            thumb=epthumb,
-                            originally_available_at=eporiginally_available_at,
-                            items=[
-                                    MediaObject(
-                                        parts = [
-                                            PartObject(
-                                                key=HTTPLiveStreamURL(url),
-                                                duration=epduration,
-                                            ),
-                                        ],
-                                        duration=epduration,
-                                        optimized_for_streaming = True,
-                                    )
-                                ]
+    eptitle = episodeDict['title']
+    epsummary = episodeDict['summary']
+    epduration = episodeDict['duration']
+    tplog('get movie duration', epduration)
+    epthumb = Resource.ContentsOfURLWithFallback(url=getSnapImageURL(episodeDict, tablo_server_id),
+                                                 fallback=episodeDict['seriesthumb'])
+    eporiginally_available_at = Datetime.ParseDate(episodeDict['airdate'])
+    url = 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+        'PRIVATE_PORT'] + '/pvr/' + episodeDict['recordingID'] + '/pl/playlist.m3u8'
+
+    movie = MovieObject(
+        key=Callback(getmovie, episodeDict=episodeDict, tablo_server_id=tablo_server_id, ocflag=True),
+        rating_key=episodeDict['recordingID'],
+        art=epbackground_art,
+        title=eptitle,
+        summary=epsummary,
+        duration=epduration,
+        thumb=epthumb,
+        originally_available_at=eporiginally_available_at,
+        items=[
+            MediaObject(
+                container=Container.MP4,
+                audio_codec=AudioCodec.AAC,
+                parts=[PartObject(key=HTTPLiveStreamURL(url))],
+                duration=epduration,
+                optimized_for_streaming=True
+            )
+        ]
     )
     if ocflag:
         return ObjectContainer(objects=[movie])
     return movie
+
+
+'''
+    response = str(HTTP.Request(url, values=None, headers={}, cacheTime=60, encoding=None, errors=None, timeout=30,
+                         immediate=False, sleep=0))
+    myparts = []
+
+    count = 0
+    for line in response.splitlines():
+        if not line.startswith('#'):
+            count += 1
+
+    wcount = 0
+    while (wcount < count):
+        file = str(wcount).zfill(5)
+
+        streamurl = 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+        'PRIVATE_PORT'] + '/pvr/' + episodeDict['recordingID'] + '/segs/' + file + '.ts'
+        myparts.append(PartObject(key=HTTPLiveStreamURL(streamurl),duration=10))
+        tplog('getmovie new response',streamurl)
+        wcount += 1
+'''
 
 '''#########################################
         Name: getepisode()
@@ -1151,46 +1304,49 @@ def getmovie(episodeDict,tablo_server_id, ocflag = False):
 
         Notes:
 #########################################'''
-def getepisodeasmovie(episodeDict,tablo_server_id, ocflag = False):
+
+
+def getepisodeasmovie(episodeDict, tablo_server_id, ocflag=False):
     #set these first for easier debugging
-    epart=episodeDict['backgroundart']
-    eptitle=episodeDict['showname'] + ' - ' + episodeDict['title']
-    epsummary=episodeDict['summary']
-    epduration=episodeDict['duration']
-    epthumb=Resource.ContentsOfURLWithFallback(url=getSnapImageURL(episodeDict,tablo_server_id), fallback=episodeDict['seriesthumb'])
-    eporiginally_available_at=Datetime.ParseDate(episodeDict['airdate'])
-    url = 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+ Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/pvr/' + episodeDict['recordingID'] + '/pl/playlist.m3u8'
+    epart = episodeDict['backgroundart']
+    eptitle = episodeDict['showname'] + ' - ' + episodeDict['title']
+    epsummary = episodeDict['summary']
+    epduration = episodeDict['duration']
+    epthumb = Resource.ContentsOfURLWithFallback(url=getSnapImageURL(episodeDict, tablo_server_id),
+                                                 fallback=episodeDict['seriesthumb'])
+    eporiginally_available_at = Datetime.ParseDate(episodeDict['airdate'])
+    url = 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+        'PRIVATE_PORT'] + '/pvr/' + episodeDict['recordingID'] + '/pl/playlist.m3u8'
     if DEBUG_IT:
         tplog('URL Found', url)
 
-    movie =  MovieObject(
-                            key=Callback(getepisodeasmovie,episodeDict=episodeDict,tablo_server_id=tablo_server_id, ocflag = True),
-                            rating_key=episodeDict['recordingID'],
-                            art=epart,
-                            title=eptitle,
-                            summary=epsummary,
-                            duration=epduration,
-                            thumb=epthumb,
-                            originally_available_at=eporiginally_available_at,
-                            items=[
-                                    MediaObject(
-                                        parts = [
-                                            PartObject(
-                                                key=HTTPLiveStreamURL(url),
-                                                duration=epduration,
-                                            ),
-                                        ],
-                                        duration=epduration,
-                                        optimized_for_streaming = True,
-                                    )
-                                ]
+    movie = MovieObject(
+        key=Callback(getepisodeasmovie, episodeDict=episodeDict, tablo_server_id=tablo_server_id, ocflag=True),
+        rating_key=episodeDict['recordingID'],
+        art=epart,
+        title=eptitle,
+        summary=epsummary,
+        duration=epduration,
+        thumb=epthumb,
+        originally_available_at=eporiginally_available_at,
+        items=[
+            MediaObject(
+                parts=[
+                    PartObject(
+                        key=HTTPLiveStreamURL(url),
+                        duration=epduration,
+                        ),
+                    ],
+                duration=epduration,
+                optimized_for_streaming=True,
+                )
+        ]
 
     )
 
     if ocflag:
         return ObjectContainer(objects=[movie])
     return movie
-
 
 
 '''#########################################
@@ -1212,11 +1368,11 @@ def getepisodeasmovie(episodeDict,tablo_server_id, ocflag = False):
 def scheduled(title):
     oc = ObjectContainer()
     oc.title1 = title
-    mymessage = ""
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
+
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
         cmd = "/info/guideSeries/get"
-        parms = {"filter":{"orderby":"startdate","schedulestate":"scheduled"}}
-        result = TabloAPI(tablo_server_id,cmd,parms)
+        parms = {"filter": {"orderby": "startdate", "schedulestate": "scheduled"}}
+        result = TabloAPI(tablo_server_id, cmd, parms)
 
         recordings = result['result']['series']
 
@@ -1225,29 +1381,33 @@ def scheduled(title):
 
         # Loop through channels and create a Episode Object for each show
         for airingData in recordings:
-                    unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
-                    displayeddate = str(Datetime.FromTimestamp(Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) + timezoneoffset))
-                    recordingtype = 'Unknown'
-                    if 'scheduleType' in airingData['schedule']:
-                        recordingtype = airingData['schedule']['scheduleType']
-                    imagedid = ''
-                    if 'images' in airingData:
-                        imagedid = airingData['images'][0]['imageID']
-                    tplog('scheduled airingdata loop',airingData)
-                    # All commented out are set in TabloLive.pys helpers
-                    oc.add(
-                        #TVShowObject(
-                    PopupDirectoryObject(
-                        title= displayeddate + ' - ' + airingData['title'],
-                        summary='Recording on : ' + cpe['NAME'] + ' Scheduled to Record: '+ recordingtype ,
-                        key=Callback(nothing, title=title) , # season = airingData['seasonNumber'],
-                        thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(imagedid,tablo_server_id) ,fallback=NOTV_ICON),
-                        tagline=unixtimestarted
-                    )
-                    )
+            unixtimestarted = Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime']))
+            displayeddate = str(Datetime.FromTimestamp(
+                Datetime.TimestampFromDatetime(Datetime.ParseDate(airingData['startTime'])) + timezoneoffset))
+            recordingtype = 'Unknown'
+            if 'scheduleType' in airingData['schedule']:
+                recordingtype = airingData['schedule']['scheduleType']
+            imagedid = ''
+            if 'images' in airingData:
+                imagedid = airingData['images'][0]['imageID']
+            tplog('scheduled airingdata loop', airingData)
+
+            oc.add(
+                #TVShowObject(
+                PopupDirectoryObject(
+                    title=displayeddate + ' - ' + airingData['title'],
+                    summary='Recording on : ' + cpe['NAME'] + ' Scheduled to Record: ' + recordingtype,
+                    key=Callback(nothing, title=title),  # season = airingData['seasonNumber'],
+                    thumb=Resource.ContentsOfURLWithFallback(url=getAssetImageURL(imagedid, tablo_server_id),
+                                                             fallback=NOTV_ICON),
+                    tagline=str(unixtimestarted)
+                )
+            )
 
     oc.objects.sort(key=lambda obj: obj.tagline, reverse=False)
     return oc
+
+
 '''#########################################
         Name: nothing()
 
@@ -1261,12 +1421,11 @@ def scheduled(title):
 
         Notes:
 #########################################'''
+
+
 def nothing(title):
     oc = ObjectContainer()
     return oc
-
-
-
 
 
 ############################################
@@ -1291,15 +1450,18 @@ def nothing(title):
 
 @route(PREFIX + '/help')
 def Help(title):
-
     oc = ObjectContainer()
+    Dict['DATABASESYNCRUNNING'] = False
+    Dict['CHANNELSYNCRUNNING'] = False
     oc.add(DirectoryObject(thumb=R('info.png'), key=Callback(About, title="About TabloTV Plex"), title="About"))
-    oc.add(DirectoryObject(thumb=R('info.png'), key=Callback(detected, title="About Your Tablo"), title="About Your Tablo"))
+    oc.add(DirectoryObject(thumb=R('TabloTV-default.png'), key=Callback(detected, title="About Your Tablo"),
+                           title="About Your Tablo"))
     oc.add(DirectoryObject(thumb=R('icon-prefs.png'), key=Callback(ResetPlugin, title="Reset Plugin"),
                            title="Reset Plugin "))
-    #oc.add(DirectoryObject(thumb=R('icon-prefs.png'), key=Callback(DeleteDups, title="Delete Dups"),
-   #                        title="Delete Dups "))
+    oc.add(DirectoryObject(thumb=R('TabloProduct_FrontRight-default.jpg'), key=Callback(SelectTablo, title="Select Tablo"),
+                            title="Select Tablo"))
     return oc
+
 
 '''#########################################
         Name: Detected()
@@ -1320,16 +1482,16 @@ def Help(title):
 def detected(title):
     mymessage = ""
 
-
-
-    for tablo_server_id,cpe in Dict['CPES'].iteritems():
+    for tablo_server_id, cpe in Dict['CPES'].iteritems():
         cmd = "/server/status"
         parms = {}
-        result = TabloAPI(tablo_server_id,cmd,parms)
-        tplog('detect',result)
+        result = TabloAPI(tablo_server_id, cmd, parms)
+        tplog('detect', result)
         tablo = result['result']
-        mymessage = mymessage + " Tablo Reported Name: " + tablo['name'] + '\r\n' + '    Reported IP: ' + tablo['localAddress'] + ' Running Version: ' + tablo['serverVersion']
+        mymessage = mymessage + " Tablo Reported Name: " + tablo['name'] + '\r\n' + '    Reported IP: ' + tablo[
+            'localAddress'] + ' Running Version: ' + tablo['serverVersion']
     return ObjectContainer(header=title, message=mymessage)
+
 
 '''#########################################
         Name: About()
@@ -1350,6 +1512,7 @@ def detected(title):
 def About(title):
     return ObjectContainer(header=title, message='TabloTV Plex Plugin Version ' + VERSION)
 
+
 '''#########################################
         Name: Reset Plugin()
 
@@ -1367,10 +1530,11 @@ def About(title):
 
 @route(PREFIX + '/ResetPlugin')
 def ResetPlugin(title):
-
     try:
         # Pass full Tablo info to here for better parsing and future multiple tablo support
         del Dict['CPES']
+        Dict['DATABASESYNCRUNNING'] = False
+        Dict['CHANNELSYNCRUNNING'] = False
         build_tablos()
         sync_database_recordings(999)
         sync_database_channels(200)
@@ -1379,16 +1543,54 @@ def ResetPlugin(title):
 
     return ObjectContainer(header=title, message='Plugin Reset Complete, Please go back to Main Menu Now')
 
+
+@route(PREFIX + '/SelectTablo')
+def SelectTablo(title,Selected = ''):
+    oc = ObjectContainer()
+    backupselection = Dict['SelectedTablo']
+    Dict['SelectedTablo'] = 'ALL'
+    build_tablos()
+    Dict['SelectedTablo'] = backupselection
+    if Selected != '':
+        Dict['SelectedTablo']= Selected
+        build_tablos()
+        tplog('Selected Tablo', Selected)
+    name = 'ALL'
+    if Dict['SelectedTablo'] == 'ALL':
+        name = name + ' (Selected) '
+    oc.add(DirectoryObject(thumb=R('TabloProduct_FrontRight-default.jpgg'), key=Callback(SelectTablo, title=name,Selected='ALL'),
+                                   title=name))
+    try:
+        # Pass full Tablo info to here for better parsing and future multiple tablo support
+        for tablo_server_id, cpe in Dict['CPES'].iteritems():
+            name = str(cpe['NAME'])
+            tplog('cpe',name)
+            if tablo_server_id == Dict['SelectedTablo']:
+                name = name + ' (Selected)'
+            oc.add(DirectoryObject(thumb=R('TabloProduct_FrontRight-default.jpg'), key=Callback(SelectTablo, title=name,Selected=tablo_server_id),
+                                   title=name))
+
+    except Exception as e:
+        tplog('Select Tablo ',e)
+
+    return oc
+
+
 ############################################
 ###########  UTILITY FUNCTIONS   ###########
 ############################################
 
-def getSnapImageURL(episodeDict,tablo_server_id):
+def getSnapImageURL(episodeDict, tablo_server_id):
     recordingID = episodeDict['recordingID']
-    return 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+ Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/pvr/' + recordingID +'/snap.jpg'
+    return 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+        'PRIVATE_PORT'] + '/pvr/' + recordingID + '/snap.jpg'
 
-def getAssetImageURL(assetID,tablo_server_id):
-    return 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':'+ Dict['CPES'][tablo_server_id]['PRIVATE_PORT'] +'/stream/thumb?id=' + str(assetID)
+
+def getAssetImageURL(assetID, tablo_server_id):
+    return 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
+        'PRIVATE_PORT'] + '/stream/thumb?id=' + str(assetID)
+
+
 '''#########################################
     Name: TabloAPI()
 
@@ -1401,24 +1603,28 @@ def getAssetImageURL(assetID,tablo_server_id):
     Notes:
         Returns result so that test for error can be handled in calling function
 #########################################'''
-def TabloAPI(tablo_server_id,cmd,parms):
-    url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] +":8886"
+
+
+def TabloAPI(tablo_server_id, cmd, parms):
+    url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ":8886"
     tplog('TabloAPI', "Starting TabloAPI Call")
     if DEBUG_IT:
         tplog(LOG_PREFIX + "cmd", cmd)
-    request = {"jsonrpc":2.0,"id":"1","method": str(cmd),"params": parms}
+    request = {"jsonrpc": 2.0, "id": "1", "method": str(cmd), "params": parms}
 
     if DEBUG_IT:
-        tplog('TabloAPI Request: ',  request)
+        tplog('TabloAPI Request: ', request)
     try:
         values = JSON.StringFromObject(request)
-        result = JSON.ObjectFromString(str(HTTP.Request(url ,values=None, headers={}, cacheTime=60, encoding=None, errors=None, timeout=30, immediate=False, sleep=0, data=values)))
+        result = JSON.ObjectFromString(str(
+            HTTP.Request(url, values=None, headers={}, cacheTime=60, encoding=None, errors=None, timeout=30,
+                         immediate=False, sleep=0, data=values)))
     except Exception as e:
-        tplog("Error when calling TabloAPI. Exception = ",e)
+        tplog("Error when calling TabloAPI. Exception = ", e)
         return e
     if DEBUG_IT:
         tplog('TabloAPI', result)
-        tplog('TabloAPI',  "End TabloAPI Call")
+        tplog('TabloAPI', "End TabloAPI Call")
     return result
 
 

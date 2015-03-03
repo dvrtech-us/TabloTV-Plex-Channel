@@ -9,6 +9,6 @@
     "id": "OVERRIDE_PORT",
     "type": "text",
     "label": "Override Port",
-    "default": ""
+    "default": "18080"
   }
 ]
