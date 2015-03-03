@@ -196,28 +196,33 @@ def sync_database_recordings(LoadLimit=5000):
         #Loop Through the current tablo and add recording information to the database
         cpe_recording_list['ids'].sort()
         for recordingIDint in cpe_recording_list['ids']:
-            recordingID = str(recordingIDint)
-            if count > LoadLimit:
-                tplog('sync_database Recording ID ignored due to load limit', recordingID)
-                return recordingID
-            if not recordingID in Dict['CPES'][tablo_server_id]['RECORDINGS'] and count < LoadLimit:
+            try:
+                recordingID = str(recordingIDint)
+                if count > LoadLimit:
+                    tplog('sync_database Recording ID ignored due to load limit', recordingID)
+                    return recordingID
+                if 'RECORDINGS' not in Dict['CPES'][tablo_server_id]:
+                    Dict['CPES'][tablo_server_id]['RECORDINGS'] = {}
+                if not recordingID in Dict['CPES'][tablo_server_id]['RECORDINGS'] and count < LoadLimit:
 
-                if count < LoadLimit:
-                    count += 1
-                    try:
-                        cpe_recording = JSON.ObjectFromURL('http://' + cpe['PRIVATE_IP'] + ':' + cpe[
-                            'PRIVATE_PORT'] + '/pvr/' + recordingID + '/meta.txt', values=None, headers={},
-                                                           cacheTime=60)
-                        Dict['CPES'][tablo_server_id]['RECORDINGS'][recordingID] = getEpisodeDict(cpe_recording,
-                                                                                                  recordingID)
-                        if DEBUG_IT:
-                            tplog('sync_database Recording first load ', recordingID)
-                            #tplog('sync_database Recording found ',Dict['CPES'][tablo_server_id]['RECORDINGS'][recordingID])
-                    except Exception as e:
-                        tplog("sync_database Error Loading Meta", e)
+                    if count < LoadLimit:
+                        count += 1
+                        try:
+                            cpe_recording = JSON.ObjectFromURL('http://' + cpe['PRIVATE_IP'] + ':' + cpe[
+                                'PRIVATE_PORT'] + '/pvr/' + recordingID + '/meta.txt', values=None, headers={},
+                                                               cacheTime=60)
+                            Dict['CPES'][tablo_server_id]['RECORDINGS'][recordingID] = getEpisodeDict(cpe_recording,
+                                                                                                      recordingID)
+                            if DEBUG_IT:
+                                tplog('sync_database Recording first load ', recordingID)
+                                #tplog('sync_database Recording found ',Dict['CPES'][tablo_server_id]['RECORDINGS'][recordingID])
+                        except Exception as e:
+                            tplog("sync_database Error Loading Meta", e)
 
-                else:
-                    tplog('sync_database hit load limit ', count)
+                    else:
+                        tplog('sync_database hit load limit ', count)
+            except Exception as e:
+                            tplog("sync_database Error Loading loop", e)
 
         #Remove Recordings that have been Deleted from the Tablo
         tplog("sync_database Checking for Deletions", "")
@@ -682,6 +687,10 @@ def Start():
     HTTP.CacheTime = CACHE_1HOUR
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:16.0) Gecko/20100101 Firefox/16.0'
     try:
+        Dict['DATABASESYNCRUNNING'] = False
+        Dict['CHANNELSYNCRUNNING'] = False
+        if 'LASTCHECK' in Dict:
+            del Dict['LASTCHECK']
         build_tablos()
         Thread.Create(sync_database_recordings)
         Thread.Create(sync_database_channels)
