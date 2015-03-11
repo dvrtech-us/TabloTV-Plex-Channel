@@ -74,7 +74,8 @@ def build_tablos():
         tablos['MANUAL']['PRIVATE_PORT'] = Prefs['OVERRIDE_PORT']
         tablos['MANUAL']['PUBLIC_IP'] = Prefs['OVERRIDE_IP']
         tablos['MANUAL']['PUBLIC_PORT'] = Prefs['OVERRIDE_PORT']
-        Dict['tablos'] = tablos
+        Dict['CPES'] = tablos
+        Dict['CPECOUNT'] = 1
         return True
     #Prevent hiting the Association Server every time find out how long its been since the last check
     datetime = Datetime.Now()
@@ -88,6 +89,7 @@ def build_tablos():
 
         if 'success' in cpes:
             tablos = {}
+
             for cpe in cpes['cpes']:
                 if Dict['SelectedTablo'] == 'ALL' or Dict['SelectedTablo'] == cpe['serverid']:
                     count += 1
@@ -721,14 +723,6 @@ def MainMenu():
     Thread.Create(sync_database_recordings)
     Thread.Create(sync_database_channels)
     #Attempt to better handle the first sync of the database by prompting to load all the data
-    nomoretosync = sync_database_recordings(50)
-
-    if nomoretosync > 1:
-        oc = ObjectContainer()
-        oc.no_cache = True
-        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(stillsyncing),
-                               title="Recordings are still syncing please continue to click here until sync finishes Last Recording was " + nomoretosync))
-        return oc
 
     oc = ObjectContainer()
     oc.no_cache = True
@@ -743,32 +737,6 @@ def MainMenu():
     oc.add(DirectoryObject(thumb=R('icon_settings_hd.png'), key=Callback(Help, title="Help"), title="Help"))
     return oc
 
-
-'''#########################################
-        Name: stillsyncing()
-
-        Parameters: None
-
-        Handler: @handler -
-
-        Purpose: Provide feedback on remaining recordings to load
-
-        Returns:
-
-        Notes:
-#########################################'''
-
-
-def stillsyncing():
-    nomoretosync = sync_database_recordings(50)
-
-    if nomoretosync > 1:
-        oc = ObjectContainer()
-        oc.no_cache = True
-        oc.add(DirectoryObject(thumb=R('icon_syncing.png'), key=Callback(MainMenu),
-                               title="Recordings are still syncing please continue to click here until sync finishes Last Recording was " + nomoretosync))
-        return oc
-    return MainMenu()
 
 
 '''#########################################
@@ -786,7 +754,7 @@ def stillsyncing():
 #########################################'''
 
 
-@route(PREFIX + '/livetv', allow_sync=True)
+@route(PREFIX + '/livetv', allow_sync=False)
 def livetv():
     #Sync the Channels from the Tablo
     sync_database_channels()
@@ -1079,8 +1047,8 @@ def seasons(title, seriesid):
 
 @route(PREFIX + '/Episodes', allow_sync=True)
 def episodes(title, seriesid, seasonnum):
-    tplog('====checking seriesid', seriesid)
-    tplog('====checking seasonnum', seasonnum)
+    #tplog('====checking seriesid', seriesid)
+    #tplog('====checking seasonnum', seasonnum)
     oc = ObjectContainer()
     oc.title1 = 'Episodes'
     recordings = {}
@@ -1182,7 +1150,7 @@ def sports():
         Notes:
 #########################################'''
 
-
+@route(PREFIX + '/getepisode')
 def getepisode(episodeDict, tablo_server_id, ocflag=False):
     #set values outside of function for better debugging
     epbackground_art = episodeDict['backgroundart']
@@ -1242,7 +1210,7 @@ def getepisode(episodeDict, tablo_server_id, ocflag=False):
         Notes:
 #########################################'''
 
-
+@route(PREFIX + '/getmovie')
 def getmovie(episodeDict, tablo_server_id, ocflag=False):
     #set values outside of function for better debugging
     epbackground_art = episodeDict['backgroundart']
@@ -1315,7 +1283,7 @@ def getmovie(episodeDict, tablo_server_id, ocflag=False):
         Notes:
 #########################################'''
 
-
+@route(PREFIX + '/getepisodeasmovie')
 def getepisodeasmovie(episodeDict, tablo_server_id, ocflag=False):
     #set these first for easier debugging
     epart = episodeDict['backgroundart']
@@ -1563,7 +1531,13 @@ def SelectTablo(title,Selected = ''):
     Dict['SelectedTablo'] = backupselection
     if Selected != '':
         Dict['SelectedTablo']= Selected
+        del Dict['CPES']
+        Dict['DATABASESYNCRUNNING'] = False
+        Dict['CHANNELSYNCRUNNING'] = False
         build_tablos()
+        sync_database_recordings(50)
+        Thread.Create(sync_database_recordings)
+        Thread.Create(sync_database_channels)
         tplog('Selected Tablo', Selected)
     name = 'ALL'
     if Dict['SelectedTablo'] == 'ALL':
@@ -1636,5 +1610,3 @@ def TabloAPI(tablo_server_id, cmd, parms):
         tplog('TabloAPI', result)
         tplog('TabloAPI', "End TabloAPI Call")
     return result
-
-
