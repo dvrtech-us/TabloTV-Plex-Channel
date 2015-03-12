@@ -37,6 +37,30 @@ def tplog(location, message):
 # ##########  "Database" FUNCTIONS   ###########
 ############################################
 
+
+def startsync():
+    datetime = Datetime.Now()
+    if 'DATABASESYNCRUNNING' in Dict:
+        if Dict['DATABASESYNCRUNNING'] == False:
+            tplog('DATABASESYNCRUNNING Sync not running', 'sync not running')
+        else:
+            #Prevent hiting the Association Server every time find out how long its been since the last check
+
+            if 'SYNCLASTCHECK'  in Dict:
+                timesincelastcheck = int(( datetime.utcnow() - Dict['SYNCLASTCHECK']).total_seconds())
+                #We have started syncing less than 5 minutes ago, allow to continue
+                if timesincelastcheck < 300 and timesincelastcheck != 0:
+                    tplog('startsync - Still syncing for',str(timesincelastcheck) )
+                    return True
+
+    buildresult = build_tablos()
+    if buildresult:
+        Dict['SYNCLASTCHECK'] = datetime.utcnow()
+        Thread.Create(sync_database_recordings)
+        Thread.Create(sync_database_channels)
+    else:
+        tplog('startsync','got false from build tablos')
+
 '''#########################################
         Name: build_tablos()
 
@@ -61,7 +85,8 @@ def build_tablos():
             Dict['SelectedTablo'] = 'ALL'
         if 'CPECOUNT' not in Dict:
             Dict['CPECOUNT'] = 0
-
+        if 'CPES' not in Dict:
+            Dict['CPES'] = {}
     except:
         tplog('failed to set selected','')
 
@@ -69,11 +94,25 @@ def build_tablos():
 
     if Prefs['OVERRIDE_IP'] != '' and Prefs['OVERRIDE_IP'] is not None:
         tplog('override',Prefs['OVERRIDE_IP'])
-        tablos = {'MANUAL': {}}
-        tablos['MANUAL']['PRIVATE_IP'] = Prefs['OVERRIDE_IP']
-        tablos['MANUAL']['PRIVATE_PORT'] = Prefs['OVERRIDE_PORT']
-        tablos['MANUAL']['PUBLIC_IP'] = Prefs['OVERRIDE_IP']
-        tablos['MANUAL']['PUBLIC_PORT'] = Prefs['OVERRIDE_PORT']
+        tablo_server_id = 'MANUAL'
+        tablos = {tablo_server_id: {}}
+        tablos[tablo_server_id]['PRIVATE_IP'] = Prefs['OVERRIDE_IP']
+        tablos[tablo_server_id]['PRIVATE_PORT'] = Prefs['OVERRIDE_PORT']
+        tablos[tablo_server_id]['PUBLIC_IP'] = Prefs['OVERRIDE_IP']
+        tablos[tablo_server_id]['PUBLIC_PORT'] = Prefs['OVERRIDE_PORT']
+
+        if 'CHANNELS' not in Dict['CPES'][tablo_server_id]:
+            tplog('No CHANNELS key Found for CPE ', tablo_server_id)
+            tablos[tablo_server_id]['CHANNELS'] = {}
+        else:
+            tplog('CHANNELS key Found for CPE ', tablo_server_id)
+            tablos[tablo_server_id]['CHANNELS'] = Dict['CPES'][tablo_server_id]['CHANNELS']
+        if 'RECORDINGS' not in Dict['CPES'][tablo_server_id]:
+            tplog('No RECORDINGS key Found for CPE ', tablo_server_id)
+            tablos[tablo_server_id]['RECORDINGS'] = {}
+        else:
+            tplog('RECORDINGS key Found for CPE ', tablo_server_id)
+            tablos[tablo_server_id]['RECORDINGS'] = Dict['CPES'][tablo_server_id]['RECORDINGS']
         Dict['CPES'] = tablos
         Dict['CPECOUNT'] = 1
         return True
@@ -167,10 +206,7 @@ def build_tablos():
 
 
 def sync_database_recordings(LoadLimit=5000):
-    if 'DATABASESYNCRUNNING' in Dict:
-        if Dict['DATABASESYNCRUNNING'] == True:
-            tplog('DATABASESYNCRUNNING Sync already running', 'sync already running')
-            return 0
+
     Dict['DATABASESYNCRUNNING'] = True
     if DEBUG_IT:
         tplog('Start sync_database  ', LoadLimit)
@@ -694,9 +730,7 @@ def Start():
         Dict['CHANNELSYNCRUNNING'] = False
         if 'LASTCHECK' in Dict:
             del Dict['LASTCHECK']
-        build_tablos()
-        Thread.Create(sync_database_recordings)
-        Thread.Create(sync_database_channels)
+        startsync()
     except Exception as e:
         tplog("Error Preloading", e)
 
@@ -719,9 +753,7 @@ def Start():
 
 @handler(PREFIX, TITLE, thumb=ICON, art=ART)
 def MainMenu():
-    build_tablos()
-    Thread.Create(sync_database_recordings)
-    Thread.Create(sync_database_channels)
+    startsync()
     #Attempt to better handle the first sync of the database by prompting to load all the data
 
     oc = ObjectContainer()
@@ -791,7 +823,7 @@ def livetv():
 
 
 @route(PREFIX + '/getlivetvepisode')
-def getlivetvepisode(channelDict, tablo_server_id, ocflag=False):
+def getlivetvepisode(channelDict, tablo_server_id, ocflag=False,includeRelatedCount=None,includeRelated=None,includeExtras=None):
     if ocflag:
         channelDict = get_channel_dict(tablo_server_id, channelDict)
         channelDict['order'] = 1
@@ -904,7 +936,7 @@ def playlive(objectID, tablo_server_id):
 
 @route(PREFIX + '/recentrecordings', allow_sync=True)
 def recentrecordings():
-    Thread.Create(sync_database_recordings)
+    startsync()
     oc = ObjectContainer()
     oc2 = ObjectContainer()
     oc.title1 = 'Recent Recordings'
@@ -947,7 +979,7 @@ def recentrecordings():
 
 @route(PREFIX + '/Shows', allow_sync=True)
 def shows():
-    sync_database_recordings(100)
+    startsync()
     shows = {}
     oc = ObjectContainer()
     oc.title1 = 'Shows'
@@ -997,7 +1029,7 @@ def shows():
 
 @route(PREFIX + '/Seasons', allow_sync=True)
 def seasons(title, seriesid):
-    sync_database_recordings(100)
+    startsync()
     seasons = {}
     lastseason = ''
     countseason = 0
@@ -1083,7 +1115,7 @@ def episodes(title, seriesid, seasonnum):
 
 @route(PREFIX + '/Movies', allow_sync=True)
 def movies():
-    sync_database_recordings(100)
+    startsync()
 
     oc = ObjectContainer()
     oc.title1 = 'Movies'
@@ -1118,7 +1150,7 @@ def movies():
 
 @route(PREFIX + '/Sports', allow_sync=True)
 def sports():
-    sync_database_recordings(100)
+    startsync()
 
     oc = ObjectContainer()
     oc.title1 = 'Sports'
@@ -1150,10 +1182,11 @@ def sports():
         Notes:
 #########################################'''
 
-@route(PREFIX + '/getepisode')
-def getepisode(episodeDict, tablo_server_id, ocflag=False):
+
+def getepisode(episodeDict, tablo_server_id, ocflag=False,includeRelatedCount=None,includeRelated=None,includeExtras=None):
     #set values outside of function for better debugging
-    epbackground_art = episodeDict['backgroundart']
+    epbackground_art = ART
+
     eptitle = episodeDict['title']
     epseason = episodeDict['seasonnum']
     epindex = episodeDict['episodenum']
@@ -1210,10 +1243,12 @@ def getepisode(episodeDict, tablo_server_id, ocflag=False):
         Notes:
 #########################################'''
 
-@route(PREFIX + '/getmovie')
+
 def getmovie(episodeDict, tablo_server_id, ocflag=False):
+    tplog('getmovie',episodeDict)
     #set values outside of function for better debugging
-    epbackground_art = episodeDict['backgroundart']
+    epbackground_art = ART
+
     eptitle = episodeDict['title']
     epsummary = episodeDict['summary']
     epduration = episodeDict['duration']
@@ -1283,7 +1318,7 @@ def getmovie(episodeDict, tablo_server_id, ocflag=False):
         Notes:
 #########################################'''
 
-@route(PREFIX + '/getepisodeasmovie')
+
 def getepisodeasmovie(episodeDict, tablo_server_id, ocflag=False):
     #set these first for easier debugging
     epart = episodeDict['backgroundart']
@@ -1536,8 +1571,7 @@ def SelectTablo(title,Selected = ''):
         Dict['CHANNELSYNCRUNNING'] = False
         build_tablos()
         sync_database_recordings(50)
-        Thread.Create(sync_database_recordings)
-        Thread.Create(sync_database_channels)
+        startsync()
         tplog('Selected Tablo', Selected)
     name = 'ALL'
     if Dict['SelectedTablo'] == 'ALL':
