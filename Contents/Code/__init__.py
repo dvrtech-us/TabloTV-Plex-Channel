@@ -759,10 +759,11 @@ def MainMenu():
     oc = ObjectContainer()
     oc.no_cache = True
     oc.add(DirectoryObject(thumb=R('icon_livetv_hd.png'), key=Callback(livetv), title="Live TV"))
+    oc.add(DirectoryObject(thumb=R('icon-Recordings.png'), key=Callback(recentrecordings), title="Recent Recordings"))
     oc.add(DirectoryObject(thumb=R('icon-Movies.png'), key=Callback(movies), title="Movies"))
     oc.add(DirectoryObject(thumb=R('icon-TVShow.png'), key=Callback(shows), title="TV Shows"))
     oc.add(DirectoryObject(thumb=R('icon_sports_hd.png'), key=Callback(sports), title="Sports"))
-    oc.add(DirectoryObject(thumb=R('icon-Recordings.png'), key=Callback(recentrecordings), title="Recent Recordings"))
+
     oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.png'),
                            key=Callback(scheduled, title="Scheduled Recordings"),
                            title="Scheduled Recordings"))
