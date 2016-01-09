@@ -1609,6 +1609,41 @@ def getAssetImageURL(assetID, tablo_server_id):
     return 'http://' + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ':' + Dict['CPES'][tablo_server_id][
         'PRIVATE_PORT'] + '/stream/thumb?id=' + str(assetID)
 
+'''#########################################
+    Name: TabloAPI2()
+    
+    Parameters: None
+    
+    Purpose:
+    
+    Returns:
+    
+    Notes:
+    Returns result so that test for error can be handled in calling function
+    #########################################'''
+
+
+def TabloAPI2(tablo_server_id, cmd, parms):
+    url = "http://" + Dict['CPES'][tablo_server_id]['PRIVATE_IP'] + ":8885"
+    tplog('TabloAPI2', "Starting TabloAPI Call")
+    if DEBUG_IT:
+        tplog(LOG_PREFIX + "cmd", cmd)
+    request = str(cmd)
+    
+    if DEBUG_IT:
+        tplog('TabloAPI2 Request: ', request)
+    try:
+        values = JSON.StringFromObject(request)
+        result = JSON.ObjectFromString(str(
+                                           HTTP.Request(url + cmd, values=None, headers={}, cacheTime=60, encoding=None, errors=None, timeout=30,
+                                                        immediate=False, sleep=0, data=values)))
+    except Exception as e:
+        tplog("Error when calling TabloAPI. Exception = ", e)
+        return e
+if DEBUG_IT:
+    tplog('TabloAP2I', result)
+        tplog('TabloAPI2', "End TabloAPI Call")
+    return result
 
 '''#########################################
     Name: TabloAPI()
