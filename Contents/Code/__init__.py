@@ -125,7 +125,7 @@ def MainMenu():
                                key=Callback(scheduled, title="Scheduled Recordings"),
                                title="Scheduled Recordings"))
         oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'), key=Callback(Help, title="Help"), title="Help"))
-        oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
+		oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
     return oc
 
 
