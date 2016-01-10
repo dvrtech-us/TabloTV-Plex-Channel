@@ -1246,9 +1246,12 @@ def cleartablodata():
     HTTP.ClearCache()
     Dict.Reset()
     # bug in Dict.Reset() is not deleting keys so we do this explicitedly
-    del Dict["RecordedTV"]
-    del Dict["Movies"]
-    del Dict["Sports"]
+    if "RecordedTV" in Dict:
+        del Dict["RecordedTV"]
+    if "Movies" in Dict:
+        del Dict["Movies"]
+    if "Sports" in Dict:
+        del Dict["Sports"]
     if "RecordedTV" not in Dict:
         plexlog('cleartablodata', 'Clear appears to have worked')
 
@@ -1429,7 +1432,7 @@ def getEpisodeDict(ipaddress, episodeID, UseMeta):
                 episodeinfo = recordinginfo[root]['jsonForClient']
                 # is this the id of the show or the series? what is it used for
                 # seriesid=episodeinfo['relationships']['recSeries']
-                # while the show's id is episodeinfo['objectID'] 
+                # while the show's id is episodeinfo['objectID']
                 # recordingDict['showid'] = episodeinfo['objectID']
                 recordingDict['showid'] = episodeinfo['relationships']['recSeries']
                 recordingDict['seasonnum'] = int(episodeinfo['seasonNumber'])
