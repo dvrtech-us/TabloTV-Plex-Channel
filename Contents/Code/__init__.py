@@ -105,13 +105,19 @@ def MainMenu():
         return oc
     else:
         try:
-            episodelistids = JSON.ObjectFromURL('http://' + Dict['private_ip'] + ':18080/plex/rec_ids', values=None,
-                                                headers={}, cacheTime=60)
+            recs = JSON.ObjectFromURL('http://' + Dict['private_ip'] + ':8885/recordings/airings', values=None, headers={}, cacheTime=60)
+
+            episodelistids = {
+                'ids': [
+                    rec.split('/')[-1]
+                    for rec in recs
+                ]
+            }
         except Exception as e:
             return ObjectContainer(header='Error', message='Could Not Connect to your tablo')
 
-        oc.add(DirectoryObject(thumb=R('icon_livetv_hd.jpg'), key=Callback(livetvnew, title="Live TV"),
-                               title="Live TV"))
+#        oc.add(DirectoryObject(thumb=R('icon_livetv_hd.jpg'), key=Callback(livetvnew, title="Live TV"),
+#                               title="Live TV"))
         oc.add(DirectoryObject(thumb=R('icon_recordings_hd.jpg'),
                                key=Callback(Shows, title="Shows", url=Dict['private_ip']), title="Shows"))
         oc.add(DirectoryObject(thumb=R('icon_movies_hd.jpg'),
@@ -447,8 +453,14 @@ def loadLiveTVData(Dict):
         ipaddress = Prefs['ipoveride']
 
     try:
-        channelids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_ids', values=None, headers={},
-                                        cacheTime=600)
+        recs = JSON.ObjectFromURL('http://' + ipaddress + ':8885/guide/channels', values=None, headers={}, cacheTime=60)
+
+        channelids = {
+            'ids': [
+                int(rec.split('/')[-1])
+                for rec in recs
+            ]
+        }
     except Exception as e:
         ("Parse Failed on Channel IDS" + str(e))
         return 0
@@ -513,15 +525,15 @@ def getChannelDict(ipaddress, intchid):
     # channelDict['url'] = 'http://' + ipaddress + ':18080/pvr/' + episodeID +'/'
     plexlog('getChannelDict', 'Requesting chid' + chid)
     try:
-        channelInfo = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_info?id=' + str(chid), values=None,
+        channelInfo = JSON.ObjectFromURL('http://' + ipaddress + ':8885/guide/channels/' + str(chid), values=None,
                                          headers={}, cacheTime=60)
 
     except Exception as e:
         plexlog('getChannelDict', "Call to CGI ch_info failed!")
         return e
 
-    if 'meta' in channelInfo:
-        chinfo = channelInfo['meta']
+    if 'channel' in channelInfo:
+        chinfo = channelInfo['channel']
 
         # Set all defaults for min required EpisodeObject
         channelDict['private_ip'] = ipaddress
@@ -529,8 +541,8 @@ def getChannelDict(ipaddress, intchid):
         channelDict['title'] = ''
         channelDict['epTitle'] = ''
         channelDict['description'] = ''
-        # channelDict[''] = ''
-        channelDict['objectID'] = chinfo['objectID']
+        channelDict[''] = ''
+        channelDict['objectID'] = channelInfo['object_id']
         channelDict['channelNumberMajor'] = 'N/A'
         channelDict['channelNumberMinor'] = 'N/A'
         channelDict['callSign'] = 'N/A'
@@ -545,12 +557,12 @@ def getChannelDict(ipaddress, intchid):
         channelDict['releaseYear'] = 0
         channelDict['directors'] = []
 
-        if 'channelNumberMajor' in chinfo:
-            channelDict['channelNumberMajor'] = chinfo['channelNumberMajor']
-        if 'channelNumberMinor' in chinfo:
-            channelDict['channelNumberMinor'] = chinfo['channelNumberMinor']
-        if 'callSign' in chinfo:
-            channelDict['callSign'] = chinfo['callSign']
+        if 'major' in chinfo:
+            channelDict['channelNumberMajor'] = chinfo['major']
+        if 'minor' in chinfo:
+            channelDict['channelNumberMinor'] = chinfo['minor']
+        if 'call_sign' in chinfo:
+            channelDict['callSign'] = chinfo['call_sign']
             channelDict['seriesThumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(
                     channelDict['callSign'])
             channelDict['art'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(
@@ -562,9 +574,9 @@ def getChannelDict(ipaddress, intchid):
                     channelDict['callSign'])
 
         # set default channelNumber AFTER trying to get the number major and number minor
-        channelDict['channelNumber'] = str(chinfo['channelNumberMajor']) + '-' + str(chinfo['channelNumberMinor'])
+        channelDict['channelNumber'] = str(channelDict['channelNumberMajor']) + '-' + str(channelDict['channelNumberMinor'])
 
-        if chinfo['dataAvailable'] == 1:
+        if chinfo.get('dataAvailable') == 1:
 
             try:
                 channelEPGInfo = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_epg?id=' + str(chid),
@@ -733,10 +745,11 @@ def allrecordings(title, url):
         loadData()
     # if we do have data, create episode objects for each episode
     if "RecordedTV" in Dict:
-
+        Log(Dict['RecordedTV'])
         for recnum, value in Dict["RecordedTV"].iteritems():
             try:
                 episodeDict = value
+                Log(episodeDict)
 
                 oc.add(getepisodeasmovie(episodeDict))
             except Exception as e:
@@ -1279,8 +1292,15 @@ def loadData():
         ipaddress = Prefs['ipoveride']
 
     try:
-        episodelistids = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/rec_ids', values=None, headers={},
-                                            cacheTime=60)
+        recs = JSON.ObjectFromURL('http://' + ipaddress + ':8885/recordings/airings', values=None, headers={}, cacheTime=60)
+
+        episodelistids = {
+            'ids': [
+                int(rec.split('/')[-1])
+                for rec in recs
+            ]
+        }
+
     except Exception as e:
         ("Parse Failed on episode IDS" + str(e))
         return 0
@@ -1317,6 +1337,7 @@ def loadData():
                     reccount = reccount + 1
                 except Exception as e:
                     plexlog("loaddata - Parse Failed on jsonurl ", e)
+
 
         plexlog('loaddata', "Cleaning up extra items ... ")
         # Feed in new Data
