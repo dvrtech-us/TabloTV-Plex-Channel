@@ -116,8 +116,8 @@ def MainMenu():
         except Exception as e:
             return ObjectContainer(header='Error', message='Could Not Connect to your tablo')
 
-#        oc.add(DirectoryObject(thumb=R('icon_livetv_hd.jpg'), key=Callback(livetvnew, title="Live TV"),
-#                               title="Live TV"))
+        oc.add(DirectoryObject(thumb=R('icon_livetv_hd.jpg'), key=Callback(livetvnew, title="Live TV"),
+                               title="Live TV"))
         oc.add(DirectoryObject(thumb=R('icon_recordings_hd.jpg'),
                                key=Callback(Shows, title="Shows", url=Dict['private_ip']), title="Shows"))
         oc.add(DirectoryObject(thumb=R('icon_movies_hd.jpg'),
@@ -575,138 +575,39 @@ def getChannelDict(ipaddress, intchid):
 
         # set default channelNumber AFTER trying to get the number major and number minor
         channelDict['channelNumber'] = str(channelDict['channelNumberMajor']) + '-' + str(channelDict['channelNumberMinor'])
+        try:
+            epg_info = JSON.ObjectFromURL('http://{}:8885/views/livetv/channels/{}'.format(ipaddress, chid))[0]
+            epg_info.update(JSON.ObjectFromURL('http://{}:8885{}'.format(ipaddress, epg_info['path'])))
+            epg_info.update(epg_info.get('airing_details', {}))
+        except Exception as e:
+            return channelDict
 
-        if chinfo.get('dataAvailable') == 1:
+        for key, chtype in (('series', 'Series'), ('movies', 'Movie'), ('sport', 'Sport'), ('programs', 'Program')):
+            if key in epg_info:
+                channelDict['type'] = chtype
+                epg_info.update(epg_info[key])
+                break
 
-            try:
-                channelEPGInfo = JSON.ObjectFromURL('http://' + ipaddress + ':18080/plex/ch_epg?id=' + str(chid),
-                                                    values=None, headers={}, cacheTime=60)
-            except Exception as e:
+        try:
+            channelDict['art'] = 'http://{}/stream/thumb?id={}'.format(ipaddress, epg_info['background_image']['image_id'])
+            channelDict['seriesThumb'] = 'http://{}/stream/thumb?id={}'.format(ipaddress, epg_info['thumbnail_image']['image_id'])
+        except:
+            channelDict['seriesThumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['callSign'])
 
-                return channelDict
+        for tablo_key, plex_key in (
+            ('season_number', 'seasonNumber'),
+            ('episode_number', 'episodeNumber'),
+            ('datetime', 'airDate',),
+            ('orig_air_date', 'originalAirDate'),
+            ('description', 'description'),
+            ('title', 'title'),
+            ('plot', 'plot')
+        ):
+            channelDict[plex_key] = epg_info.get(tablo_key, '')
 
-            if 'meta' in channelEPGInfo:
-                epgInfo = channelEPGInfo['meta']
-                imageInfo = 0  # initialize to avoide reference before assignment
-            else:
+        if 'duration' in epg_info:
+            channelDict['duration'] = int(epg_info['duration']) * 1000
 
-                channelDict['message'] = "No ch_epg info found. Using ch_info."
-                return channelDict
-
-            if 'guideSportEvent' in epgInfo:
-
-                guideInfo = epgInfo['guideSportEvent']
-                channelDict['type'] = 'Sport'
-                if 'guideSportOrganization' in epgInfo:
-                    Log(LOG_PREFIX + 'Guide Sport Organization')
-                    guideSportOrg = epgInfo['guideSportOrganization']
-                    if 'imageJson' in guideSportOrg:
-                        imageInfo = guideSportOrg['imageJson']['images']
-            elif 'guideEpisode' in epgInfo:
-
-                guideInfo = epgInfo['guideEpisode']
-                channelDict['type'] = 'Episode'
-                if 'guideSeries' in epgInfo:
-                    Log(LOG_PREFIX + 'Series')
-                    guideDetailInfo = epgInfo['guideSeries']
-                    channelDict['type'] = 'Series'
-                    if 'imageJson' in guideDetailInfo:
-                        imageInfo = guideDetailInfo['imageJson']['images']
-            elif 'guideMovieAiring' in epgInfo:
-
-                guideInfo = epgInfo['guideMovieAiring']
-                channelDict['type'] = 'Movie'
-                if 'guideMovie' in epgInfo:
-                    Log(LOG_PREFIX + 'guideMovie')
-                    guideDetailInfo = epgInfo['guideMovie']
-                    channelDict['type'] = 'guideMovie'
-                    if 'imageJson' in guideDetailInfo:
-                        imageInfo = guideDetailInfo['imageJson']['images']
-            else:
-                plexlog(LOG_PREFIX, 'UNHANDLED TYPE!!! not sport or movie or episode')
-                return channelDict
-
-            # set images outside of series logic to ensure defaults are set
-            if imageInfo:
-                artFound = 0
-                thumbFound = 0
-                for seriesimage in imageInfo:
-                    if seriesimage['imageStyle'] == 'background' and artFound == 0:
-                        channelDict['art'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
-                                seriesimage['imageID'])
-                        artFound = 1
-                    if seriesimage['imageStyle'] == 'snapshot' and artFound == 0:
-                        channelDict['art'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
-                                seriesimage['imageID'])
-                        artFound = 1
-                    if seriesimage['imageStyle'] == 'thumbnail' and thumbFound == 0:
-                        channelDict['seriesThumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
-                                seriesimage['imageID'])
-                        thumbFound = 1
-                    if seriesimage['imageStyle'] == 'cover' and thumbFound == 0:
-                        channelDict['seriesThumb'] = 'http://' + ipaddress + ':18080/stream/thumb?id=' + str(
-                                seriesimage['imageID'])
-                        thumbFound = 1
-            else:
-                channelDict['seriesThumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(
-                        channelDict['callSign'])
-
-            # Guide Series or Episode Info
-            if channelDict['type'] != 'Sport':
-                guideEpInfo = guideInfo['jsonForClient']
-
-                if 'seasonNumber' in guideEpInfo:
-                    channelDict['seasonNumber'] = int(guideEpInfo['seasonNumber'])
-                if 'episodeNumber' in guideEpInfo:
-                    channelDict['episodeNumber'] = int(guideEpInfo['episodeNumber'])
-                if 'airDate' in guideEpInfo:
-                    channelDict['airDate'] = guideEpInfo['airDate']
-                if 'originalAirDate' in guideEpInfo:
-                    channelDict['originalAirDate'] = guideEpInfo['originalAirDate']
-                if 'description' in guideEpInfo:
-                    channelDict['description'] = guideEpInfo['description']
-                if 'duration' in guideEpInfo:
-                    channelDict['duration'] = int(guideEpInfo['duration']) * 1000
-                if 'schedule' in guideEpInfo:
-                    channelDict['schedule'] = guideEpInfo['schedule']
-                if 'title' in guideEpInfo:
-                    channelDict['epTitle'] = guideEpInfo['title']
-
-            if channelDict['type'] == 'Series' or channelDict['type'] == 'guideMovie':
-                guideJsonInfo = guideDetailInfo['jsonForClient']
-                if 'description' in guideJsonInfo and channelDict['description'] == '':
-                    channelDict['description'] = guideJsonInfo['description']
-                elif 'plot' in guideJsonInfo:
-                    channelDict['description'] = guideJsonInfo['plot']
-                if 'title' in guideJsonInfo:
-                    channelDict['title'] = guideJsonInfo['title']
-                if 'duration' in guideJsonInfo:
-                    channelDict['duration'] = int(guideJsonInfo['duration']) * 1000
-                if 'originalAirDate' in guideJsonInfo:
-                    channelDict['originalAirDate'] = guideJsonInfo['originalAirDate']
-                if 'cast' in guideJsonInfo:
-                    channelDict['cast'] = [castMember for castMember in guideJsonInfo['cast']]
-                if 'runtime' in guideJsonInfo:
-                    channelDict['runtime'] = guideJsonInfo['runtime']
-                if 'releaseYear' in guideJsonInfo:
-                    channelDict['releaseYear'] = guideJsonInfo['releaseYear']
-                if 'directors' in guideJsonInfo:
-                    channelDict['directors'] = [director for director in guideJsonInfo['directors']]
-                if 'schedule' in guideJsonInfo:
-                    channelDict['schedule'] = guideJsonInfo['schedule']
-                if 'airDate' in guideJsonInfo:
-                    channelDict['airDate'] = guideJsonInfo['airDate']
-
-            if channelDict['type'] == 'Sport':
-                guideJsonInfo = guideInfo['jsonForClient']
-
-                if 'eventTitle' in guideJsonInfo:
-                    channelDict['title'] = guideJsonInfo['eventTitle']
-                    channelDict['epTitle'] = guideJsonInfo['eventTitle']
-                if 'airDate' in guideJsonInfo:
-                    channelDict['airDate'] = guideJsonInfo['airDate']
-                if 'duration' in guideJsonInfo:
-                    channelDict['duration'] = int(guideJsonInfo['duration']) * 1000
 
     return channelDict
 
