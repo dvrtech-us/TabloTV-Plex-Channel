@@ -69,8 +69,6 @@ def MediaObjectsForURL(url):
         MediaObject(
             protocol = 'hls',
             container = 'mpegts',
-            duration = episodeDict['duration'],
-            aspect_ratio = aspect,
             video_codec = VideoCodec.H264,
             audio_codec = AudioCodec.AAC,
             audio_channels = 2,
@@ -89,4 +87,4 @@ def MediaObjectsForURL(url):
 @indirect
 def PlayVideo(url):
     Log(' --> Final playvideo_url: %s' % url)
-    return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(url))
+    return IndirectResponse(VideoClipObject, key=url)

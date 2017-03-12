@@ -409,7 +409,7 @@ def livetvnew(title):
                 oc.add(EpisodeObject(
                         url=Encodeobj('channel', airingData),
                         show=airingData['channelNumber'] + ': ' + airingData['callSign'],
-                        title=airingData.get('title', airingData['channelNumber'] + ': ' + airingData['callSign']),
+                        title=airingData.get('title') or (airingData['channelNumber'] + ': ' + airingData['callSign']),
                         summary=airingData.get('summary', ''),
                         absolute_index=airingData['order'],
                         season = airingData.get('seasonNumber'),
