@@ -56,7 +56,6 @@ def MediaObjectsForURL(url):
 
     episodeDict = Decodeobj('TabloRecording',url)
 
-    bitrate = 500
     aspect = None
     try:
         #Get aspect Ratio and truncate to 2 decimal places
@@ -70,7 +69,7 @@ def MediaObjectsForURL(url):
         MediaObject(
             protocol = 'hls',
             container = 'mpegts',
-            duration = int(episodeDict['duration']),
+            duration = episodeDict['duration'],
             aspect_ratio = aspect,
             video_codec = VideoCodec.H264,
             audio_codec = AudioCodec.AAC,
@@ -90,6 +89,4 @@ def MediaObjectsForURL(url):
 @indirect
 def PlayVideo(url):
     Log(' --> Final playvideo_url: %s' % url)
-    return IndirectResponse(VideoClipObject, key=url)
-
-
+    return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(url))

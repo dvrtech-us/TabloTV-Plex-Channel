@@ -20,18 +20,19 @@ def MetadataObjectForURL(url):
 	#Log.Debug('MetadataObjectForURL: ' + title)
 
 	return EpisodeObject(
-			title = channelDict['epTitle'],
+			#title = channelDict['title'],
+			title = channelDict['channelNumber'] + ': ' + channelDict['callSign'],
 			summary = channelDict['summary'],
 			thumb = Resource.ContentsOfURLWithFallback(url=channelDict['seriesThumb'], fallback=ICON),
-			show = channelDict['title'],
+			show = channelDict['channelNumber'] + ': ' + channelDict['callSign'],
 			art=channelDict['art'] ,
-			duration = int(channelDict['duration']),
-			season = int(channelDict['seasonNumber']),
+			duration = channelDict.get('duration'),
+			season = channelDict.get('seasonNumber'),
 			originally_available_at = Datetime.ParseDate(channelDict['airDate']),
 			#writer
-			directors = channelDict['directors'],
+			#directors = channelDict['directors'],
 			#producer
-			guest_stars = channelDict['cast']
+			#guest_stars = channelDict['cast']
 			#source_title
 			)
 #			thumb = Resource.ContentsOfURLWithFallback(url=episodeDict['url'] + 'snap.jpg', fallback=episodeDict['seriesthumb']),

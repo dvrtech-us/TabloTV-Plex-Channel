@@ -409,15 +409,14 @@ def livetvnew(title):
                 oc.add(EpisodeObject(
                         url=Encodeobj('channel', airingData),
                         show=airingData['channelNumber'] + ': ' + airingData['callSign'],
-                        title=airingData['title'],
-                        summary=airingData['summary'],
-                        originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),
+                        title=airingData.get('title', 'unknown'),
+                        summary=airingData.get('summary', ''),
                         absolute_index=airingData['order'],
-                        season = airingData['seasonNumber'],
+                        season = airingData.get('seasonNumber'),
                         thumb=Resource.ContentsOfURLWithFallback(url=airingData['seriesThumb'], fallback=NOTV_ICON),
                         art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
                         source_title='TabloTV',
-                        duration = airingData['duration']
+                        duration = airingData.get('duration')
                 )
                 )
             except Exception as e:
@@ -539,7 +538,6 @@ def getChannelDict(ipaddress, intchid):
         channelDict['private_ip'] = ipaddress
         channelDict['id'] = chid
         channelDict['title'] = ''
-        channelDict['epTitle'] = ''
         channelDict['description'] = ''
         channelDict[''] = ''
         channelDict['objectID'] = channelInfo['object_id']
@@ -576,7 +574,7 @@ def getChannelDict(ipaddress, intchid):
         # set default channelNumber AFTER trying to get the number major and number minor
         channelDict['channelNumber'] = str(channelDict['channelNumberMajor']) + '-' + str(channelDict['channelNumberMinor'])
         try:
-            epg_info = JSON.ObjectFromURL('http://{}:8885/views/livetv/channels/{}'.format(ipaddress, chid))[0]
+            epg_info = JSON.ObjectFromURL('http://{}:8885/views/livetv/channels/{}'.format(ipaddress, chid), cacheTime=60)[0]
             epg_info.update(JSON.ObjectFromURL('http://{}:8885{}'.format(ipaddress, epg_info['path'])))
             epg_info.update(epg_info.get('airing_details', {}))
         except Exception as e:
@@ -604,7 +602,7 @@ def getChannelDict(ipaddress, intchid):
             ('title', 'title'),
             ('plot', 'plot')
         ):
-            channelDict[plex_key] = epg_info.get(tablo_key, '')
+            channelDict[plex_key] = epg_info.get(tablo_key)
 
         if 'duration' in epg_info:
             channelDict['duration'] = int(epg_info['duration'])
@@ -956,6 +954,7 @@ def getepisode(episodeDict):
             art=episodeDict['backgroundart'],
             url=Encodeobj('TabloRecording', episodeDict),
             title=episodeDict['title'],
+            show=episodeDict.get('showname'),
             season=episodeDict['seasonnum'],
             index=episodeDict['episodenum'],
             summary=episodeDict['summary'],
