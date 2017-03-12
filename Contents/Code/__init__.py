@@ -127,9 +127,9 @@ def MainMenu():
         oc.add(DirectoryObject(thumb=R('icon_tvshows_hd.jpg'),
                                key=Callback(allrecordings, title="All Recordings", url=Dict['private_ip']),
                                title="Recent Recordings"))
-        oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.jpg'),
-                               key=Callback(scheduled, title="Scheduled Recordings"),
-                               title="Scheduled Recordings"))
+        # oc.add(DirectoryObject(thumb=R('icon_scheduled_hd.jpg'),
+        #                        key=Callback(scheduled, title="Scheduled Recordings"),
+        #                        title="Scheduled Recordings"))
         oc.add(DirectoryObject(thumb=R('icon_settings_hd.jpg'), key=Callback(Help, title="Help"), title="Help"))
         oc.add(PrefsObject(title='Change your IP Address', thumb=R(ICON_PREFS)))
     return oc
@@ -410,14 +410,14 @@ def livetvnew(title):
                         url=Encodeobj('channel', airingData),
                         show=airingData['channelNumber'] + ': ' + airingData['callSign'],
                         title=airingData['title'],
-                        summary=airingData['description'],
-                        # originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),  #writers = ,
-                        # directors = ,  #producers = ,  #guest_stars = ,
-                        absolute_index=airingData['order'],  # season = airingData['seasonNumber'],
+                        summary=airingData['summary'],
+                        originally_available_at = Datetime.ParseDate(airingData['originalAirDate']),
+                        absolute_index=airingData['order'],
+                        season = airingData['seasonNumber'],
                         thumb=Resource.ContentsOfURLWithFallback(url=airingData['seriesThumb'], fallback=NOTV_ICON),
-                        # art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
-                        source_title='TabloTV'
-                        # duration = airingData['duration']  #description = airingData['description']
+                        art= Resource.ContentsOfURLWithFallback(url=airingData['art'], fallback=ART),
+                        source_title='TabloTV',
+                        duration = airingData['duration']
                 )
                 )
             except Exception as e:
@@ -589,24 +589,25 @@ def getChannelDict(ipaddress, intchid):
                 break
 
         try:
-            channelDict['art'] = 'http://{}/stream/thumb?id={}'.format(ipaddress, epg_info['background_image']['image_id'])
             channelDict['seriesThumb'] = 'http://{}/stream/thumb?id={}'.format(ipaddress, epg_info['thumbnail_image']['image_id'])
+            channelDict['art'] = 'http://{}/stream/thumb?id={}'.format(ipaddress, epg_info['background_image']['image_id'])
         except:
             channelDict['seriesThumb'] = 'http://hostedfiles.netcommtx.com/Tablo/plex/makeposter.php?text=' + str(channelDict['callSign'])
+            channelDict['art'] = channelDict['seriesThumb']
 
         for tablo_key, plex_key in (
             ('season_number', 'seasonNumber'),
             ('episode_number', 'episodeNumber'),
             ('datetime', 'airDate',),
             ('orig_air_date', 'originalAirDate'),
-            ('description', 'description'),
+            ('description', 'summary'),
             ('title', 'title'),
             ('plot', 'plot')
         ):
             channelDict[plex_key] = epg_info.get(tablo_key, '')
 
         if 'duration' in epg_info:
-            channelDict['duration'] = int(epg_info['duration']) * 1000
+            channelDict['duration'] = int(epg_info['duration'])
 
 
     return channelDict

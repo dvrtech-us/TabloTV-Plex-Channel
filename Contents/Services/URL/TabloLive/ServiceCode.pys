@@ -21,7 +21,7 @@ def MetadataObjectForURL(url):
 
 	return EpisodeObject(
 			title = channelDict['epTitle'],
-			summary = channelDict['description'],
+			summary = channelDict['summary'],
 			thumb = Resource.ContentsOfURLWithFallback(url=channelDict['seriesThumb'], fallback=ICON),
 			show = channelDict['title'],
 			art=channelDict['art'] ,

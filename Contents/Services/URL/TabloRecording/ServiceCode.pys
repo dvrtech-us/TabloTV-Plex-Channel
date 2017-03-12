@@ -7,9 +7,9 @@ SHOW_THUMB      = 'no_tv_110x150.jpg'
 ####################################################################################################
 def NormalizeURL(url):
     return url
-    
+
 def MetadataObjectForURL(url):
-    
+
     recordingDict = Decodeobj('TabloRecording',url)
 
 
@@ -65,13 +65,12 @@ def MediaObjectsForURL(url):
         bitrate = int(episodeDict['video']['size']) / int(episodeDict['duration'])
     except Exception as e:
         Log('Failed to calculate aspect' + str(e))
-        
+
     return [
         MediaObject(
             protocol = 'hls',
             container = 'mpegts',
             duration = int(episodeDict['duration']),
-            bitrate = bitrate,
             aspect_ratio = aspect,
             video_codec = VideoCodec.H264,
             audio_codec = AudioCodec.AAC,
@@ -84,23 +83,13 @@ def MediaObjectsForURL(url):
             ]
         )
     ]
-                
+
 
 
 ####################################################################################################
 @indirect
 def PlayVideo(url):
-    #altdict = Decodeobj('TabloRecording',url)
-    #if 'alt' in altdict:
-    #    episodeDict = getEpisodeDict(altdict['private_ip'],altdict['episodeID'] ,False)
-    #else:
-    #    episodeDict = altdict
-    #ipaddress = episodeDict['private_ip'] 
-    #episodeID = episodeDict['episodeID'] 
-    #video_url = episodeDict['url'] + 'pl/playlist.m3u8'
-    video_url = url
-    Log(' --> Final playvideo_url: %s' % video_url)
+    Log(' --> Final playvideo_url: %s' % url)
+    return IndirectResponse(VideoClipObject, key=url)
 
-    return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(video_url))
-    
-    
+
