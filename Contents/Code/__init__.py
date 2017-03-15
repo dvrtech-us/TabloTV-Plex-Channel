@@ -1452,7 +1452,7 @@ def getTabloIP():
     except Exception as e:
         plexlog("Error when calling getTabloIPPrefs", e)
     try:
-        result = JSON.ObjectFromURL(url)
+        result = JSON.ObjectFromURL(url, cacheTime=0)
 
     except Exception as e:
         plexlog("Error when calling getipinfo", e)
